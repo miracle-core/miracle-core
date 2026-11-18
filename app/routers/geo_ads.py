@@ -249,3 +249,84 @@ async def book_free_camp_slot(req: CampBookingRequest, db: Session = Depends(get
         f"👤 Patient: {req.patient_name} ({req.patient_phone})"
     )
     return {"status": "booked", "message": "Aapka slot confirm ho gaya hai!"}
+
+
+def guess_emergency_number(lat: float, lng: float) -> dict:
+    # India approx bounds
+    if 6.0 <= lat <= 37.5 and 68.0 <= lng <= 97.5:
+        return {"country": "India", "ambulance": "108", "national": "112"}
+    # Turkey approx bounds
+    if 35.8 <= lat <= 42.3 and 25.5 <= lng <= 45.0:
+        return {"country": "Turkey", "ambulance": "112", "national": "112"}
+    # USA / Canada approx bounds
+    if 24.0 <= lat <= 71.0 and -170.0 <= lng <= -52.0:
+        return {"country": "North America", "ambulance": "911", "national": "911"}
+    return {"country": "Global", "ambulance": "112", "national": "112"}
+
+
+@router.get("/ambulance-nearby")
+async def find_nearest_ambulance(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    radius_km: int = Query(default=10, le=25),
+):
+    emerg = guess_emergency_number(lat, lng)
+    radius_m = radius_km * 1000
+    overpass_query = f"""
+    [out:json][timeout:10];
+    (
+      node["emergency"="ambulance_station"](around:{radius_m},{lat},{lng});
+      way["emergency"="ambulance_station"](around:{radius_m},{lat},{lng});
+      node["amenity"="hospital"](around:{radius_m},{lat},{lng});
+      way["amenity"="hospital"](around:{radius_m},{lat},{lng});
+    );
+    out center 15;
+    """
+    providers = []
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            res = await client.post("https://overpass-api.de/api/interpreter", data={"data": overpass_query})
+        if res.status_code == 200:
+            for el in res.json().get("elements", []):
+                tags = el.get("tags", {})
+                name = tags.get("name")
+                if not name:
+                    continue
+                is_amb = tags.get("emergency") == "ambulance_station"
+                phone = tags.get("phone") or tags.get("contact:phone") or tags.get("emergency:phone") or ""
+                p_lat = el.get("lat") or el.get("center", {}).get("lat")
+                p_lng = el.get("lon") or el.get("center", {}).get("lon")
+                providers.append({
+                    "name": name,
+                    "type": "Ambulance Station" if is_amb else "Emergency Hospital",
+                    "phone": phone,
+                    "lat": p_lat,
+                    "lng": p_lng,
+                })
+    except Exception:
+        pass
+
+    # Ambulance stations first, then hospitals
+    providers.sort(key=lambda x: 0 if x["type"] == "Ambulance Station" else 1)
+    return {
+        "emergency_numbers": emerg,
+        "google_maps_pin": f"https://maps.google.com/?q={lat},{lng}",
+        "providers": providers[:12],
+    }
+
+
+class SosLogRequest(BaseModel):
+    lat: float
+    lng: float
+    note: Optional[str] = "Emergency Ambulance SOS Pressed"
+
+
+@router.post("/sos-alert")
+async def log_sos_alert(req: SosLogRequest):
+    maps_url = f"https://maps.google.com/?q={req.lat},{req.lng}"
+    await notify_owner(
+        f"🚨 <b>EMERGENCY SOS TRIGGERED!</b>\n"
+        f"📍 Location: <a href='{maps_url}'>Open Google Maps Pin</a>\n"
+        f"📝 Note: {req.note}"
+    )
+    return {"status": "logged", "maps_url": maps_url}

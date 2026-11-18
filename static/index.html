@@ -151,6 +151,11 @@
 
   <!-- 4 ULTRA-SIMPLE BUTTONS -->
   <div class="big-grid">
+    <button class="big-btn" style="background:linear-gradient(135deg,#dc2626,#991b1b);grid-column:span 2;padding:15px;font-size:17px;" onclick="openEmergencySOS()">
+      <span class="ico">🚑</span>
+      <span>EMERGENCY AMBULANCE SOS</span>
+      <small>1-Tap Call + Nearest Ambulance ko Live GPS Location bhejein</small>
+    </button>
     <button class="big-btn btn-call" onclick="startVoiceCall()">
       <span class="ico">📞</span>
       <span id="lblCall">Live Call Ali Vepa AI</span>
@@ -176,6 +181,15 @@
     <button class="big-btn" style="background:#0f766e;grid-column:span 2;padding:12px;font-size:14px;" onclick="shareMiracle()">
       <span>📲 Apne Parivar & Doston Ko WhatsApp Par Share Karein</span>
     </button>
+  </div>
+
+  <!-- EMERGENCY AMBULANCE SOS SECTION -->
+  <div class="card hidden" id="sosSection" style="border:2px solid #dc2626; background:#fef2f2;">
+    <h3 style="color:#b91c1c;">🚑 Emergency Ambulance & Live GPS SOS</h3>
+    <p id="sosLocationText" style="font-size:13px; font-weight:700; color:#7f1d1d;">📍 Fetching exact GPS...</p>
+    <div id="sosPrimaryBtns" style="display:grid; gap:10px; margin-bottom:12px;"></div>
+    <h4 style="margin:8px 0 4px; color:#7f1d1d;">🏥 Nearest Ambulance Providers & Hospitals (10km):</h4>
+    <div id="sosProvidersList">Searching nearest emergency services...</div>
   </div>
 
   <!-- QUICK TEXT / MIC FALLBACK -->
@@ -267,6 +281,25 @@
   </div>
 </div>
 
+<!-- WELCOME MISSION NOTIFICATION MODAL -->
+<div id="welcomeModal" class="hidden" style="position:fixed;inset:0;z-index:998;background:rgba(6,24,18,0.78);display:flex;align-items:center;justify-content:center;padding:18px;">
+  <div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+    <img src="/logo.svg" alt="MIRACLE" style="width:68px;height:68px;border-radius:16px;margin-bottom:8px;" />
+    <h2 style="margin:6px 0;color:#064e3b;font-size:20px;">Welcome to MIRACLE</h2>
+    <div id="welcomeLocBadge" style="font-size:12px;background:#ecfdf5;color:#0b6e4f;padding:6px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;font-weight:700;">📍 Detecting your location...</div>
+    <p style="font-size:14px;line-height:1.55;color:#1e293b;margin:0 0 14px;">
+      <b>MIRACLE</b> ek <b>100% Patient-Based aur Bilkul FREE</b> seva hai.<br/><br/>
+      Kripya ise apne <b>kareebi doston aur parivar (Dear & Near Ones)</b> ko zaroor bhejein, taaki kisi bhi insaan ko health ya medical report ki zaroorat par <b>turant sachai aur sahi madad</b> mil sake!
+    </p>
+    <button onclick="shareMiracle()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">
+      📲 Share With Dear & Near Ones (WhatsApp)
+    </button>
+    <button onclick="closeWelcomeModal()" style="width:100%;background:#0f172a;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">
+      ✅ Continue to MIRACLE App
+    </button>
+  </div>
+</div>
+
 <script>
   let userLat = 21.7230, userLng = 73.0160; // Default Bharuch-Chavaj fallback until GPS grants
   let currentOrderCode = "";
@@ -297,7 +330,7 @@
   detectGPS();
 
   function showSection(id) {
-    ["scanSection", "nearSection", "partnerSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
+    ["sosSection", "scanSection", "nearSection", "partnerSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
   }
 
@@ -749,6 +782,114 @@
   function shareMiracle() {
     const txt = encodeURIComponent("🩺 Kisi bhi report ya ilaj par Free Second Opinion paayein — MIRACLE AI se bolkar baat karein:\nhttps://miracle-core.onrender.com/");
     window.open("https://wa.me/?text=" + txt, "_blank");
+  }
+
+  // ============ WELCOME MODAL & LOCATION ============
+  window.addEventListener("DOMContentLoaded", () => {
+    if (!sessionStorage.getItem("miracle_welcomed")) {
+      document.getElementById("welcomeModal").classList.remove("hidden");
+    }
+  });
+
+  function closeWelcomeModal() {
+    sessionStorage.setItem("miracle_welcomed", "1");
+    document.getElementById("welcomeModal").classList.add("hidden");
+  }
+
+  // Update welcome modal location badge when GPS updates
+  const origDetectGPS = detectGPS;
+  detectGPS = function() {
+    if (!navigator.geolocation) {
+      document.getElementById("gpsStatus").innerText = "📍 GPS not supported";
+      const wb = document.getElementById("welcomeLocBadge");
+      if (wb) wb.innerText = "📍 Global Mode Active";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        document.getElementById("gpsStatus").innerText = `📍 Live GPS Ready (${userLat.toFixed(3)}, ${userLng.toFixed(3)})`;
+        const wb = document.getElementById("welcomeLocBadge");
+        if (wb) wb.innerText = `📍 Location Connected (${userLat.toFixed(2)}, ${userLng.toFixed(2)})`;
+      },
+      () => {
+        document.getElementById("gpsStatus").innerText = "📍 Tap Refresh to Allow GPS";
+        const wb = document.getElementById("welcomeLocBadge");
+        if (wb) wb.innerText = "📍 Please Allow Location for 10km Care & SOS";
+      },
+      { timeout: 8000 }
+    );
+  };
+  detectGPS();
+
+  // ============ EMERGENCY AMBULANCE SOS ============
+  async function openEmergencySOS() {
+    showSection("sosSection");
+    document.getElementById("sosProvidersList").innerHTML = "⏳ Live GPS & Nearest Ambulance search ho raha hai...";
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        loadAmbulanceSOS();
+      }, () => loadAmbulanceSOS(), { timeout: 4000 });
+    } else {
+      loadAmbulanceSOS();
+    }
+  }
+
+  async function loadAmbulanceSOS() {
+    const mapsPin = `https://maps.google.com/?q=${userLat},${userLng}`;
+    document.getElementById("sosLocationText").innerHTML =
+      `📍 Live GPS: ${userLat.toFixed(5)}, ${userLng.toFixed(5)} • <a href="${mapsPin}" target="_blank">Open Map Pin</a>`;
+
+    // Log SOS in background
+    fetch("/api/clinics/sos-alert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: userLat, lng: userLng, note: "Patient tapped Emergency Ambulance SOS" }),
+    }).catch(() => {});
+
+    try {
+      const res = await fetch(`/api/clinics/ambulance-nearby?lat=${userLat}&lng=${userLng}&radius_km=10`);
+      const d = await res.json();
+      const ambNum = d.emergency_numbers?.ambulance || "112";
+      const country = d.emergency_numbers?.country || "Emergency";
+      const sosMsg = encodeURIComponent(`🚨 EMERGENCY! Mujhe turant Ambulance / Medical help chahiye. Meri Live Location: ${mapsPin}`);
+
+      document.getElementById("sosPrimaryBtns").innerHTML = `
+        <a href="tel:${ambNum}" style="display:block;text-align:center;background:#dc2626;color:#fff;padding:14px;border-radius:12px;font-size:17px;font-weight:800;text-decoration:none;">
+          📞 CALL AMBULANCE NOW (${ambNum} • ${country})
+        </a>
+        <a href="https://wa.me/?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#16a34a;color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;">
+          📲 Send My Live Location on WhatsApp (Family / Help)
+        </a>
+      `;
+
+      const list = d.providers || [];
+      if (!list.length) {
+        document.getElementById("sosProvidersList").innerHTML = "<p>Upar wale <b>Call Ambulance</b> button se turant call karein.</p>";
+        return;
+      }
+
+      document.getElementById("sosProvidersList").innerHTML = list.map(p => {
+        const cleanPhone = (p.phone || "").replace(/[^0-9+]/g, "");
+        const waDigits = cleanPhone.replace(/^\+/, "");
+        const informUrl = waDigits ? `https://wa.me/${waDigits}?text=${sosMsg}` : "";
+        return `
+          <div class="clinic-item" style="border-color:#fca5a5;background:#fff;">
+            <b>${p.type === 'Ambulance Station' ? '🚑' : '🏥'} ${p.name}</b> <small>(${p.type})</small><br/>
+            ${cleanPhone ? `<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+              <a href="tel:${cleanPhone}" style="background:#dc2626;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700;">📞 Call ${cleanPhone}</a>
+              ${informUrl ? `<a href="${informUrl}" target="_blank" style="background:#16a34a;color:#fff;padding:6px 10px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:700;">📲 Inform GPS on WhatsApp</a>` : ""}
+            </div>` : `<small style="color:#64748b;">Phone not listed on map — <a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank">Directions</a></small>`}
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      document.getElementById("sosProvidersList").innerHTML = "⚠️ Unable to load list. Please call 112 / 108 / 911 immediately.";
+    }
   }
 </script>
 </body>
