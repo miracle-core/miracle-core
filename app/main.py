@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Depends, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from dotenv import load_dotenv
@@ -17,6 +18,7 @@ from app.strategist_agent import run_strategist_analysis
 from app.routers.jarvis_ai import router as jarvis_router
 from app.routers.geo_ads import router as geo_ads_router
 from app.routers.sales_agent import router as sales_router, run_ai_outreach_batch
+from app.routers.admin_crm import router as admin_router
 
 WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "miracle_secret_2025")
 CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
@@ -28,7 +30,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MIRACLE Health AI Core", version="1.4.0", lifespan=lifespan)
+app = FastAPI(title="MIRACLE Health AI Core", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,16 +42,22 @@ app.add_middleware(
 app.include_router(jarvis_router)
 app.include_router(geo_ads_router)
 app.include_router(sales_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
-def home():
-    return {
-        "app": "MIRACLE",
-        "mission": "Unbiased Second Opinion, Report Transparency & Honest Care",
-        "status": "running",
-        "docs": "/docs",
-    }
+def serve_app():
+    return FileResponse("static/index.html")
+
+
+@app.get("/admin")
+def serve_admin():
+    return FileResponse("static/admin.html")
+
+
+@app.get("/privacy")
+def serve_privacy():
+    return FileResponse("static/privacy.html")
 
 
 @app.get("/health")
@@ -109,5 +117,5 @@ async def setup_webhook(app_url: str, secret: str):
             f"https://api.telegram.org/bot{bot_token}/setWebhook",
             json={"url": webhook_url, "secret_token": WEBHOOK_SECRET},
         )
-    await notify_owner("🚀 <b>MIRACLE Server, Watchdog & Strategist Connected!</b>")
+    await notify_owner("🚀 <b>MIRACLE v2.0 App, Voice Call & CRM Live!</b>")
     return res.json()

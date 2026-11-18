@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MIRACLE • AI Health & Second Opinion</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; background: #f3f7fa; color: #162330; padding-bottom: 80px; }
+    header {
+      background: linear-gradient(135deg, #0b6e4f, #0d8a6f);
+      color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+    .brand { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+    .brand small { display: block; font-size: 11px; font-weight: 400; opacity: 0.9; }
+    select.lang-pick {
+      background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 8px; padding: 6px 8px; font-size: 13px; font-weight: 600;
+    }
+    select.lang-pick option { color: #162330; }
+
+    .container { max-width: 540px; margin: 0 auto; padding: 14px; }
+    .gps-bar {
+      background: #e6f4ef; color: #0b6e4f; padding: 8px 12px; border-radius: 10px;
+      font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+    }
+
+    /* Big Uneducated-Friendly Action Grid */
+    .big-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .big-btn {
+      border: none; border-radius: 16px; padding: 18px 12px; color: #fff; text-align: center;
+      font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .big-btn span.ico { font-size: 32px; }
+    .big-btn small { font-size: 11px; font-weight: 400; opacity: 0.92; }
+    .btn-call { background: linear-gradient(135deg, #16a34a, #15803d); grid-column: span 2; padding: 20px; font-size: 18px; }
+    .btn-scan { background: linear-gradient(135deg, #0284c7, #0369a1); }
+    .btn-near { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+    .btn-doc  { background: linear-gradient(135deg, #ea580c, #c2410c); grid-column: span 2; padding: 14px; font-size: 14px; }
+
+    .card {
+      background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .card h3 { margin-top: 0; font-size: 16px; color: #0b6e4f; }
+    textarea, input, select {
+      width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 10px;
+      margin-bottom: 10px; font-size: 14px; background: #fff;
+    }
+    .primary-btn {
+      width: 100%; background: #0b6e4f; color: #fff; border: none; border-radius: 10px;
+      padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .speak-btn {
+      background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; border-radius: 8px;
+      padding: 7px 12px; font-size: 13px; font-weight: 700; cursor: pointer; margin-bottom: 8px;
+    }
+
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .badge-ok { background: #dcfce7; color: #166534; }
+    .badge-warn { background: #fee2e2; color: #991b1b; }
+    .badge-dept { background: #e0e7ff; color: #3730a3; }
+
+    .clinic-item {
+      border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; background: #fafcff;
+    }
+    .clinic-item.featured { border: 2px solid #16a34a; background: #f0fdf4; }
+    .hidden { display: none !important; }
+
+    /* FULL-SCREEN PHONE CALL OVERLAY */
+    #callOverlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: radial-gradient(circle at top, #0f3d2e, #09151a);
+      color: #fff; display: flex; flex-direction: column; justify-content: space-between;
+      align-items: center; padding: 36px 20px; text-align: center;
+    }
+    .call-avatar {
+      width: 128px; height: 128px; border-radius: 50%; background: rgba(22, 163, 74, 0.25);
+      border: 3px solid #4ade80; display: flex; align-items: center; justify-content: center;
+      font-size: 56px; margin: 16px auto; animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+      70% { box-shadow: 0 0 0 26px rgba(74, 222, 128, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+    .call-transcript {
+      background: rgba(255,255,255,0.1); border-radius: 14px; padding: 14px;
+      width: 100%; max-width: 440px; min-height: 95px; max-height: 190px; overflow-y: auto;
+      font-size: 14px; line-height: 1.5; text-align: left;
+    }
+    .call-controls { display: flex; gap: 22px; align-items: center; }
+    .call-circle {
+      width: 64px; height: 64px; border-radius: 50%; border: none; font-size: 24px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .call-end { background: #dc2626; color: #fff; width: 74px; height: 74px; font-size: 28px; }
+    .call-mute { background: rgba(255,255,255,0.18); color: #fff; }
+    footer { text-align: center; font-size: 12px; color: #64748b; padding: 16px; }
+    footer a { color: #0b6e4f; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    🩺 MIRACLE
+    <small>Sacchai & Honest Second Opinion</small>
+  </div>
+  <select id="langSelect" class="lang-pick" onchange="updateLabels()">
+    <option value="hinglish">🇮🇳 Hinglish / हिन्दी</option>
+    <option value="hi">🇮🇳 शुद्ध हिन्दी</option>
+    <option value="en">🌍 English</option>
+    <option value="tr">🇹🇷 Türkçe</option>
+  </select>
+</header>
+
+<div class="container">
+  <div class="gps-bar">
+    <span id="gpsStatus">📍 Location check ho raha hai...</span>
+    <button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">Refresh GPS</button>
+  </div>
+
+  <!-- 4 ULTRA-SIMPLE BUTTONS -->
+  <div class="big-grid">
+    <button class="big-btn btn-call" onclick="startVoiceCall()">
+      <span class="ico">📞</span>
+      <span id="lblCall">Live Call Doctor AI (सीधे बात करें)</span>
+      <small id="lblCallSub">Type karne ki zaroorat nahi • Phone call jaisa baat karein</small>
+    </button>
+
+    <button class="big-btn btn-scan" onclick="showSection('scanSection')">
+      <span class="ico">📸</span>
+      <span id="lblScan">Report / Parchi Scan</span>
+      <small>Photo khinch kar samjhein</small>
+    </button>
+
+    <button class="big-btn btn-near" onclick="showSection('nearSection'); loadNearby();">
+      <span class="ico">🏥</span>
+      <span id="lblNear">10km Doctors & Camps</span>
+      <small>Aas-paas sahi ilaj</small>
+    </button>
+
+    <button class="big-btn btn-doc" onclick="showSection('partnerSection')">
+      <span class="ico">👨‍⚕️</span>
+      <span>For Doctors & Clinics: Apna 10km Ad / Free Camp Lagayein</span>
+    </button>
+  </div>
+
+  <!-- QUICK TEXT / MIC FALLBACK -->
+  <div class="card" id="askSection">
+    <h3>💬 Ya Likh Kar / Bolkar Poochhein</h3>
+    <textarea id="symptomInput" rows="2" placeholder="Apni takleef likhein ya mic se bolein..."></textarea>
+    <button class="primary-btn" onclick="askJarvisText()">Jawab Paayein (Free Second Opinion)</button>
+  </div>
+
+  <!-- REPORT SCANNER SECTION -->
+  <div class="card hidden" id="scanSection">
+    <h3>📸 Blood Test, MRI/X-Ray, ya Parchi Scan Karein</h3>
+    <input type="file" id="reportFile" accept="image/*" capture="environment" />
+    <input type="text" id="reportNote" placeholder="Koi sawal? (e.g. Kya operation zaroori hai?)" />
+    <button class="primary-btn" onclick="scanReport()">🔍 Scan & Bolkar Samjhayein</button>
+  </div>
+
+  <!-- AI RESULT CARD -->
+  <div class="card hidden" id="resultCard">
+    <div id="resultContent"></div>
+  </div>
+
+  <!-- NEARBY 10KM DOCTORS & CAMPS -->
+  <div class="card hidden" id="nearSection">
+    <h3>📍 Aapke 10 km Ke Andar Sahi Doctors & Free Camps</h3>
+    <div id="nearList">Loading...</div>
+  </div>
+
+  <!-- DOCTOR SELF-ONBOARDING FORM -->
+  <div class="card hidden" id="partnerSection">
+    <h3>👨‍⚕️ Doctor / Clinic / Free Camp Ad Form (Zero Commission)</h3>
+    <input type="text" id="dName" placeholder="Clinic / Hospital Name" />
+    <input type="text" id="dSpec" placeholder="Specialty (e.g. Orthopedics, Cardiology, Ayurveda, Dental)" />
+    <select id="dPathy">
+      <option value="Allopathy">Allopathy (MBBS/MD/MS)</option>
+      <option value="Ayurveda">Ayurveda (BAMS)</option>
+      <option value="Homeopathy">Homeopathy (BHMS)</option>
+      <option value="Unani">Unani (BUMS)</option>
+      <option value="Dentistry">Dentistry (BDS)</option>
+      <option value="Physiotherapy">Physiotherapy (BPT)</option>
+      <option value="Veterinary">Veterinary (BVSc)</option>
+    </select>
+    <input type="text" id="dDeg" placeholder="Degree (e.g. MBBS, MD / BAMS)" />
+    <input type="text" id="dLic" placeholder="Medical Registration / License No." />
+    <input type="text" id="dPhone" placeholder="WhatsApp Phone (with country code, e.g. +91... / +90...)" />
+    <input type="text" id="dAddr" placeholder="Full Clinic Address" />
+    <select id="dPlan">
+      <option value="camp_1500">🏕️ Free Health Camp Ad — ₹1,500 / week ($19 Global)</option>
+      <option value="weekly_3500">📢 Weekly 10km Spotlight — ₹3,500 / week ($45 Global)</option>
+      <option value="monthly_7500">🚀 Monthly 10km Growth Plan — ₹7,500 / month ($95 Global)</option>
+    </select>
+    <input type="text" id="dCamp" placeholder="Free Camp Title (Optional, e.g. Free Sugar Checkup)" />
+    <button class="primary-btn" onclick="registerDoctorAd()">Order Banayein & Payment Info Paayein</button>
+
+    <div id="payBox" class="hidden" style="margin-top:14px; padding:12px; background:#fefce8; border:1px solid #fde047; border-radius:10px;">
+      <div id="payInstructions" style="font-size:13px; margin-bottom:10px;"></div>
+      <input type="file" id="payShot" accept="image/*" />
+      <button class="primary-btn" style="background:#ea580c;" onclick="uploadPaymentProof()">📤 Upload Payment Screenshot (AI Verify)</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  MIRACLE AI Health Navigator • Not a replacement for emergency/licensed care.<br/>
+  <a href="/privacy">Privacy Policy & Medical Disclaimer</a> • <a href="/admin">Owner CRM</a>
+</footer>
+
+<!-- FULL-SCREEN PHONE CALL MODE -->
+<div id="callOverlay" class="hidden">
+  <div>
+    <div style="font-size:13px; opacity:0.8; letter-spacing:1px;">MIRACLE LIVE VOICE CONSULT</div>
+    <h2 style="margin:6px 0;">Dr. Jarvis AI</h2>
+    <div id="callTimer" style="font-size:16px; color:#86efac;">Connecting...</div>
+  </div>
+
+  <div>
+    <div class="call-avatar" id="callAvatar">🩺</div>
+    <div id="callStatusText" style="font-size:16px; font-weight:700; margin-bottom:10px;">Shuru ho raha hai...</div>
+    <div class="call-transcript" id="callTranscript">Aap apni takleef seedhe bol sakte hain...</div>
+  </div>
+
+  <div class="call-controls">
+    <button class="call-circle call-mute" id="btnReplayListen" onclick="manualRestartMic()" title="Mic Retry">🎤</button>
+    <button class="call-circle call-end" onclick="endVoiceCall()" title="End Call">📵</button>
+    <button class="call-circle call-mute" id="btnMuteVoice" onclick="toggleSpeaker()" title="Speaker On/Off">🔊</button>
+  </div>
+</div>
+
+<script>
+  let userLat = 21.7230, userLng = 73.0160; // Default Bharuch-Chavaj fallback until GPS grants
+  let currentOrderCode = "";
+  let callActive = false;
+  let speakerOn = true;
+  let callHistory = [];
+  let recognition = null;
+  let callSeconds = 0;
+  let timerInterval = null;
+
+  function detectGPS() {
+    if (!navigator.geolocation) {
+      document.getElementById("gpsStatus").innerText = "📍 GPS not supported (Default Location Active)";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        document.getElementById("gpsStatus").innerText = `📍 Live GPS Ready (${userLat.toFixed(3)}, ${userLng.toFixed(3)})`;
+      },
+      () => {
+        document.getElementById("gpsStatus").innerText = "📍 GPS Permission Denied (Tap Refresh ya Allow karein)";
+      },
+      { timeout: 8000 }
+    );
+  }
+  detectGPS();
+
+  function showSection(id) {
+    ["scanSection", "nearSection", "partnerSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
+    document.getElementById(id).classList.remove("hidden");
+  }
+
+  function getSpeechLang() {
+    const l = document.getElementById("langSelect").value;
+    if (l === "hi" || l === "hinglish") return "hi-IN";
+    if (l === "tr") return "tr-TR";
+    return "en-IN";
+  }
+
+  function updateLabels() {
+    const l = document.getElementById("langSelect").value;
+    if (l === "tr") {
+      document.getElementById("lblCall").innerText = "Canlı Sesli Arama (Doktor AI)";
+      document.getElementById("lblCallSub").innerText = "Yazmaya gerek yok • Telefon görüşmesi gibi konuşun";
+    } else if (l === "en") {
+      document.getElementById("lblCall").innerText = "Live Voice Call (Jarvis AI)";
+      document.getElementById("lblCallSub").innerText = "No typing needed • Talk just like a phone call";
+    } else {
+      document.getElementById("lblCall").innerText = "Live Call Doctor AI (सीधे बात करें)";
+      document.getElementById("lblCallSub").innerText = "Type karne ki zaroorat nahi • Phone call jaisa baat karein";
+    }
+  }
+
+  function speakText(text, onDone = null) {
+    if (!("speechSynthesis" in window) || !speakerOn) {
+      if (onDone) onDone();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = getSpeechLang();
+    utter.rate = 0.96;
+    utter.onend = () => { if (onDone) onDone(); };
+    utter.onerror = () => { if (onDone) onDone(); };
+    window.speechSynthesis.speak(utter);
+  }
+
+  // ============ PHONE CALL VOICE MODE ============
+  function startVoiceCall() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    callActive = true;
+    callSeconds = 0;
+    callHistory = [];
+    document.getElementById("callOverlay").classList.remove("hidden");
+    document.getElementById("callTimer").innerText = "00:00";
+    timerInterval = setInterval(() => {
+      callSeconds++;
+      const m = String(Math.floor(callSeconds / 60)).padStart(2, "0");
+      const s = String(callSeconds % 60).padStart(2, "0");
+      document.getElementById("callTimer").innerText = `${m}:${s}`;
+    }, 1000);
+
+    if (!SR) {
+      document.getElementById("callStatusText").innerText = "Browser Voice Mic Unsupported";
+      document.getElementById("callTranscript").innerText = "Kripya Google Chrome Android use karein ya home screen par likh kar poochhein.";
+      return;
+    }
+
+    const lang = document.getElementById("langSelect").value;
+    const greet = lang === "tr"
+      ? "Merhaba, ben MIRACLE Jarvis. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
+      : lang === "en"
+      ? "Hello, I am MIRACLE Jarvis. Please tell me how you are feeling, I am listening."
+      : "Namaste, main MIRACLE Jarvis hoon. Aap apni takleef bataiye, main sun raha hoon.";
+
+    document.getElementById("callStatusText").innerText = "🗣️ Jarvis Bol Raha Hai...";
+    document.getElementById("callTranscript").innerHTML = `<b>Jarvis:</b> ${greet}`;
+    speakText(greet, () => {
+      if (callActive) listenOnce();
+    });
+  }
+
+  function listenOnce() {
+    if (!callActive) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    try { if (recognition) recognition.abort(); } catch(e) {}
+
+    recognition = new SR();
+    recognition.lang = getSpeechLang();
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    let finalText = "";
+    document.getElementById("callStatusText").innerText = "🎤 Sun Raha Hoon... Boliye";
+
+    recognition.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += t + " ";
+        else interim += t;
+      }
+      document.getElementById("callTranscript").innerHTML = `<b>Aap:</b> ${finalText || interim}`;
+    };
+
+    recognition.onend = async () => {
+      if (!callActive) return;
+      const spoken = finalText.trim();
+      if (!spoken) {
+        document.getElementById("callStatusText").innerText = "🎤 Kuch sunai nahi diya, phir boliye...";
+        setTimeout(() => { if (callActive) listenOnce(); }, 700);
+        return;
+      }
+      await processVoiceTurn(spoken);
+    };
+
+    recognition.onerror = (e) => {
+      if (!callActive) return;
+      if (e.error === "not-allowed") {
+        document.getElementById("callStatusText").innerText = "❌ Mic Permission Allow Karein";
+      } else {
+        setTimeout(() => { if (callActive) listenOnce(); }, 900);
+      }
+    };
+
+    recognition.start();
+  }
+
+  function manualRestartMic() {
+    window.speechSynthesis.cancel();
+    listenOnce();
+  }
+
+  async function processVoiceTurn(spokenText) {
+    document.getElementById("callStatusText").innerText = "⏳ Jarvis Soch Raha Hai...";
+    try {
+      const res = await fetch("/api/jarvis/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symptoms: spokenText,
+          history: callHistory.slice(-3).join(" | "),
+          language: document.getElementById("langSelect").value,
+          lat: userLat,
+          lng: userLng,
+        }),
+      });
+      const data = await res.json();
+      renderResult(data);
+      const g = data.ai_guidance || {};
+      let reply = g.emergency_flag
+        ? `Emergency Alert! ${g.emergency_message}. ${g.simple_summary}`
+        : `${g.simple_summary || ""} Aapko ${g.detected_department || "Doctor"} se milna chahiye.`;
+
+      callHistory.push(`Patient: ${spokenText} -> Jarvis: ${g.detected_department}`);
+      document.getElementById("callTranscript").innerHTML =
+        `<b>Aap:</b> ${spokenText}<br/><br/><b>Jarvis (${g.detected_department || "Care"}):</b> ${reply}`;
+      document.getElementById("callStatusText").innerText = "🗣️ Jarvis Jawab De Raha Hai...";
+
+      speakText(reply, () => {
+        if (callActive) listenOnce();
+      });
+    } catch (err) {
+      document.getElementById("callStatusText").innerText = "⚠️ Network issue, phir bolein...";
+      setTimeout(() => { if (callActive) listenOnce(); }, 1200);
+    }
+  }
+
+  function toggleSpeaker() {
+    speakerOn = !speakerOn;
+    document.getElementById("btnMuteVoice").innerText = speakerOn ? "🔊" : "🔇";
+    if (!speakerOn) window.speechSynthesis.cancel();
+  }
+
+  function endVoiceCall() {
+    callActive = false;
+    clearInterval(timerInterval);
+    try { if (recognition) recognition.abort(); } catch(e) {}
+    window.speechSynthesis.cancel();
+    document.getElementById("callOverlay").classList.add("hidden");
+  }
+
+  // ============ TEXT ASK & REPORT SCAN ============
+  async function askJarvisText() {
+    const txt = document.getElementById("symptomInput").value.trim();
+    if (!txt) return alert("Kripya apni takleef likhein ya Live Call button dabayein.");
+    showLoadingResult();
+    const res = await fetch("/api/jarvis/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symptoms: txt,
+        language: document.getElementById("langSelect").value,
+        lat: userLat,
+        lng: userLng,
+      }),
+    });
+    const data = await res.json();
+    renderResult(data);
+    if (data.ai_guidance?.simple_summary) speakText(data.ai_guidance.simple_summary);
+  }
+
+  async function scanReport() {
+    const fileInput = document.getElementById("reportFile");
+    if (!fileInput.files.length) return alert("Pehle report ki photo select ya click karein!");
+    showLoadingResult();
+    const fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    fd.append("note", document.getElementById("reportNote").value);
+    fd.append("language", document.getElementById("langSelect").value);
+    fd.append("lat", userLat);
+    fd.append("lng", userLng);
+
+    const res = await fetch("/api/jarvis/scan-report", { method: "POST", body: fd });
+    const data = await res.json();
+    renderResult(data);
+    if (data.ai_guidance?.simple_summary) speakText(data.ai_guidance.simple_summary);
+  }
+
+  function showLoadingResult() {
+    const rc = document.getElementById("resultCard");
+    rc.classList.remove("hidden");
+    document.getElementById("resultContent").innerHTML = "<p>⏳ Jarvis report aur guidelines check kar raha hai...</p>";
+  }
+
+  function renderResult(data) {
+    const g = data.ai_guidance || {};
+    const rc = document.getElementById("resultCard");
+    rc.classList.remove("hidden");
+
+    const safeSummary = (g.simple_summary || "").replace(/'/g, "");
+    let html = `
+      <button class="speak-btn" onclick="speakText('${safeSummary}')">🔊 Sunne Ke Liye Dabayein</button>
+      <div>
+        ${g.emergency_flag ? `<span class="badge badge-warn">🚨 EMERGENCY</span>` : `<span class="badge badge-ok">✅ Calm Review</span>`}
+        <span class="badge badge-dept">🏥 ${g.detected_department || "General Physician"} (${g.recommended_degree || ""})</span>
+      </div>
+      ${g.emergency_flag ? `<p style="color:#b91c1c;font-weight:700;">${g.emergency_message}</p>` : ""}
+      <p style="font-size:15px; line-height:1.5;">${g.simple_summary || ""}</p>
+    `;
+
+    if (g.report_breakdown && g.report_breakdown.length) {
+      html += `<h4>📋 Report / Medicines Breakdown:</h4><ul>`;
+      g.report_breakdown.forEach(item => {
+        html += `<li><b>${item.item}</b> (${item.status}): ${item.meaning}</li>`;
+      });
+      html += `</ul>`;
+    }
+
+    if (g.multi_pathy_view) {
+      html += `
+        <div style="background:#f8fafc; padding:10px; border-radius:10px; font-size:13px; margin-top:8px;">
+          <b>🩺 Modern Medicine:</b> ${g.multi_pathy_view.modern_medicine || ""}<br/><br/>
+          <b>🌿 Supportive / AYUSH / Lifestyle:</b> ${g.multi_pathy_view.supportive_pathy || ""}<br/><br/>
+          <b>💊 Cost & Generic Tip:</b> ${g.multi_pathy_view.generic_cost_tip || ""}
+        </div>
+      `;
+    }
+
+    if (g.questions_for_doctor && g.questions_for_doctor.length) {
+      html += `<h4>❓ Apne Doctor Se Yeh Sawal Zaroor Poochhein:</h4><ul>` +
+        g.questions_for_doctor.map(q => `<li>${q}</li>`).join("") + `</ul>`;
+    }
+
+    const nearby = data.nearby_verified_specialists_10km || [];
+    if (nearby.length) {
+      html += `<h4>📍 10km Ke Andar Verified ${g.detected_department}:</h4>`;
+      nearby.forEach(c => {
+        html += `<div class="clinic-item featured">
+          <b>${c.name}</b> (${c.degree}) • 📍 ${c.distance_km} km<br/>
+          <small>${c.address}</small><br/>
+          <a href="tel:${c.phone}">📞 Call: ${c.phone}</a>
+        </div>`;
+      });
+    }
+
+    html += `<p style="font-size:11px; color:#64748b; margin-top:10px;">⚠️ ${g.disclaimer || ""}</p>`;
+    document.getElementById("resultContent").innerHTML = html;
+  }
+
+  // ============ 10KM NEARBY CARE ============
+  async function loadNearby() {
+    const box = document.getElementById("nearList");
+    box.innerHTML = "⏳ 10km clinics & free camps dhoondh raha hoon...";
+    try {
+      const [adsRes, pubRes] = await Promise.all([
+        fetch(`/api/clinics/nearby?lat=${userLat}&lng=${userLng}&radius_km=10`).then(r => r.json()),
+        fetch(`/api/sales/public-nearby?lat=${userLat}&lng=${userLng}&radius_km=10`).then(r => r.json())
+      ]);
+      let html = "";
+      (adsRes.results || []).forEach(c => {
+        const speakMsg = `${c.name}, ${c.distance_km} kilometer door. ${c.camp_title || c.specialty}`;
+        html += `
+          <div class="clinic-item featured">
+            <span class="badge badge-ok">✅ Verified ${c.plan_type === 'camp_1500' ? 'Free Camp' : 'Clinic'}</span>
+            <button class="speak-btn" style="float:right;" onclick="speakText('${speakMsg}')">🔊</button>
+            <h4 style="margin:6px 0 2px;">${c.name}</h4>
+            <small>${c.specialty} (${c.degree}) • 📍 ${c.distance_km} km</small><br/>
+            ${c.camp_title ? `<b style="color:#b45309;">🏕️ ${c.camp_title}</b><br/>` : ""}
+            <small>${c.address}</small><br/><br/>
+            <a href="tel:${c.phone}" style="margin-right:10px; font-weight:700; color:#0b6e4f;">📞 Call</a>
+            <button onclick="bookCamp(${c.campaign_id})" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:700;">🎟️ Book Free Slot</button>
+          </div>
+        `;
+      });
+
+      const pubs = pubRes.results || [];
+      if (pubs.length) {
+        html += `<h4 style="margin-top:16px;">🗺️ Public Hospitals & Clinics (Map Data):</h4>`;
+        pubs.slice(0, 12).forEach(p => {
+          html += `<div class="clinic-item"><b>${p.name}</b> <small>(${p.type})</small>${p.phone ? `<br/><a href="tel:${p.phone}">📞 ${p.phone}</a>` : ""}</div>`;
+        });
+      }
+      box.innerHTML = html || "<p>Is area mein abhi data nahi mila.</p>";
+    } catch (e) {
+      box.innerHTML = "⚠️ Load karne mein issue aaya.";
+    }
+  }
+
+  async function bookCamp(campaignId) {
+    const name = prompt("Apna Naam likhein:");
+    const phone = prompt("Apna Mobile Number likhein:");
+    if (!name || !phone) return;
+    const res = await fetch("/api/clinics/book-camp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaign_id: campaignId, patient_name: name, patient_phone: phone }),
+    });
+    const d = await res.json();
+    alert(d.message || "Booked!");
+  }
+
+  // ============ DOCTOR PARTNER REGISTRATION ============
+  async function registerDoctorAd() {
+    const body = {
+      name: document.getElementById("dName").value,
+      specialty: document.getElementById("dSpec").value,
+      pathy: document.getElementById("dPathy").value,
+      degree: document.getElementById("dDeg").value,
+      license_no: document.getElementById("dLic").value,
+      phone: document.getElementById("dPhone").value,
+      address: document.getElementById("dAddr").value,
+      lat: userLat,
+      lng: userLng,
+      plan_type: document.getElementById("dPlan").value,
+      camp_title: document.getElementById("dCamp").value || null,
+    };
+    const res = await fetch("/api/clinics/register-ad", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await res.json();
+    if (!res.ok) return alert(d.detail || "Error");
+    currentOrderCode = d.order_code;
+    document.getElementById("payBox").classList.remove("hidden");
+    document.getElementById("payInstructions").innerHTML = `<b>Order Code: ${d.order_code}</b><br/>${d.payment_instructions}`;
+  }
+
+  async function uploadPaymentProof() {
+    const f = document.getElementById("payShot");
+    if (!f.files.length) return alert("Payment screenshot select karein!");
+    const fd = new FormData();
+    fd.append("order_code", currentOrderCode);
+    fd.append("file", f.files[0]);
+    const res = await fetch("/api/clinics/upload-payment-proof", { method: "POST", body: fd });
+    const d = await res.json();
+    alert(d.message || "Sent for approval!");
+  }
+</script>
+</body>
+</html>

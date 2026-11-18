@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIRACLE • Owner CRM</title>
+  <style>
+    body { font-family: sans-serif; background: #f1f5f9; margin: 0; padding: 16px; color: #0f172a; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    button { background: #0b6e4f; color: #fff; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+    .stat { background: #ecfdf5; padding: 12px; border-radius: 10px; text-align: center; }
+    .stat b { font-size: 22px; color: #0b6e4f; display: block; }
+  </style>
+</head>
+<body>
+  <h2>🛡️ MIRACLE Owner Mini-CRM</h2>
+  <div class="card">
+    <input type="password" id="sec" placeholder="Enter CRON_SECRET (e.g. miracle_cron_2025)" style="padding:9px; width:220px;" />
+    <button onclick="loadCRM()">Unlock CRM</button>
+    <button onclick="runAction('/api/sales/run-outreach?limit=5', 'POST')" style="background:#0284c7;">🤖 Run AI Outreach</button>
+  </div>
+
+  <div id="crmBody" style="display:none;">
+    <div class="grid" id="statsGrid"></div>
+    <div class="card"><h3>💳 Payment Approvals</h3><table id="payTable"></table></div>
+    <div class="card"><h3>📩 Sales Leads CRM</h3><table id="leadTable"></table></div>
+    <div class="card"><h3>🎟️ Free Camp Bookings</h3><table id="bookTable"></table></div>
+  </div>
+
+<script>
+  async function loadCRM() {
+    const s = document.getElementById("sec").value;
+    const res = await fetch(`/api/admin/dashboard?secret=${encodeURIComponent(s)}`);
+    if (!res.ok) return alert("Wrong Secret!");
+    const d = await res.json();
+    document.getElementById("crmBody").style.display = "block";
+
+    const sum = d.summary;
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat"><b>${sum.total_clinics}</b>Clinics</div>
+      <div class="stat"><b>${sum.active_ads}</b>Active Ads</div>
+      <div class="stat"><b>${sum.pending_payments}</b>Pending Pay</div>
+      <div class="stat"><b>${sum.total_leads}</b>CRM Leads</div>
+      <div class="stat"><b>${sum.camp_bookings}</b>Camp Slots</div>
+      <div class="stat"><b>${sum.total_triages}</b>AI Triages</div>
+    `;
+
+    document.getElementById("payTable").innerHTML = "<tr><th>Order</th><th>Clinic</th><th>₹</th><th>Status</th><th>Action</th></tr>" +
+      d.payments.map(p => `<tr><td>${p.order_code}</td><td>${p.clinic_name}</td><td>${p.amount}</td><td>${p.status}</td><td>${p.status === 'pending' ? `<button onclick="approve(${p.id})">Approve</button>` : 'Done'}</td></tr>`).join("");
+
+    document.getElementById("leadTable").innerHTML = "<tr><th>Clinic</th><th>City</th><th>Stage</th><th>Phone</th></tr>" +
+      d.leads.map(l => `<tr><td>${l.clinic_name}</td><td>${l.city || ''}</td><td>${l.stage}</td><td>${l.phone || ''}</td></tr>`).join("");
+
+    document.getElementById("bookTable").innerHTML = "<tr><th>Patient</th><th>Phone</th><th>Time</th></tr>" +
+      d.bookings.map(b => `<tr><td>${b.patient_name}</td><td>${b.patient_phone}</td><td>${b.created_at}</td></tr>`).join("");
+  }
+
+  async function approve(id) {
+    const s = document.getElementById("sec").value;
+    await fetch(`/api/admin/approve-payment/${id}?secret=${encodeURIComponent(s)}`, { method: "POST" });
+    loadCRM();
+  }
+
+  async function runAction(url, method) {
+    await fetch(url, { method });
+    alert("Executed! Check Telegram.");
+  }
+</script>
+</body>
+</html>
