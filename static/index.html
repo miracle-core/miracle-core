@@ -404,6 +404,7 @@
     // Unlock audio element on user tap
     callAudioPlayer.src = "";
 
+    fetch(`/api/sales/public-nearby?lat=${userLat}&lng=${userLng}&radius_km=10`).catch(()=>{});
     const lang = document.getElementById("langSelect").value;
     document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Connecting...";
     try {
@@ -453,6 +454,7 @@
       const dataArr = new Uint8Array(analyser.frequencyBinCount);
       let heardSpeech = false;
       let silenceStart = Date.now();
+      let noiseFloor = 8;
       const recStartedAt = Date.now();
 
       function checkAudio() {
@@ -463,15 +465,20 @@
           const v = Math.abs(dataArr[i] - 128);
           if (v > peak) peak = v;
         }
-        document.getElementById("micMeter").style.width = Math.min(100, peak * 3) + "%";
+        document.getElementById("micMeter").style.width = Math.min(100, peak * 3.5) + "%";
 
-        if (peak > 12) {
+        if (!heardSpeech && (Date.now() - recStartedAt) < 400) {
+          noiseFloor = Math.max(noiseFloor, peak + 4);
+        }
+        const speechThreshold = Math.min(24, Math.max(12, noiseFloor));
+
+        if (peak > speechThreshold) {
           heardSpeech = true;
           silenceStart = Date.now();
-        } else if (heardSpeech && Date.now() - silenceStart > 1700) {
+        } else if (heardSpeech && (Date.now() - silenceStart > 850)) {
           finishRecordingNow();
           return;
-        } else if (!heardSpeech && Date.now() - recStartedAt > 12000) {
+        } else if (!heardSpeech && (Date.now() - recStartedAt > 8000)) {
           finishRecordingNow();
           return;
         }
