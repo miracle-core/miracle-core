@@ -146,7 +146,7 @@
 <div class="container">
   <div class="gps-bar">
     <span id="gpsStatus">📍 Location check ho raha hai...</span>
-    <div style="display:flex;gap:6px;"><button onclick="openEmergencySOS()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;">🪪 Family ICE</button><button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">GPS</button></div>
+    <div style="display:flex;gap:5px;"><button onclick="openGuideModal()" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;">❓ Guide</button><button onclick="openEmergencySOS()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;">🪪 Family ICE</button><button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">GPS</button></div>
   </div>
 
   <!-- PATIENT vs HEALTHCARE SERVICE SWITCHER -->
@@ -380,9 +380,32 @@
     <button onclick="shareMiracle()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">
       📲 Share With Dear & Near Ones (WhatsApp)
     </button>
+    <button onclick="closeWelcomeModal(); openGuideModal();" style="width:100%;background:#0284c7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+      📖 How to Use MIRACLE (4 Easy Steps + Audio)
+    </button>
     <button onclick="closeWelcomeModal()" style="width:100%;background:#0f172a;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">
       ✅ Continue to MIRACLE App
     </button>
+  </div>
+</div>
+
+<!-- 4-STEP INTERACTIVE AUDIO-VISUAL USER GUIDE MODAL -->
+<div id="guideModal" class="hidden" style="position:fixed;inset:0;z-index:999;background:rgba(6,24,18,0.85);display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.4);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span id="guideStepBadge" style="background:#e0f2fe;color:#0369a1;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:800;">Step 1 of 4</span>
+      <button onclick="closeGuideModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;">✖</button>
+    </div>
+    <div id="guideIcon" style="font-size:56px;margin:8px 0;">📞</div>
+    <h2 id="guideTitle" style="margin:6px 0;color:#064e3b;font-size:19px;"></h2>
+    <p id="guideDesc" style="font-size:14px;line-height:1.55;color:#1e293b;min-height:76px;margin:8px 0 12px;"></p>
+    <button onclick="speakCurrentGuide()" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">
+      🔊 Sunne Ke Liye Dabayein / Listen
+    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button onclick="prevGuideStep()" id="btnGuidePrev" style="background:#e2e8f0;color:#1e293b;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;">⬅️ Back</button>
+      <button onclick="nextGuideStep()" id="btnGuideNext" style="background:#0b6e4f;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;">Next ➡️</button>
+    </div>
   </div>
 </div>
 
@@ -1255,6 +1278,75 @@
     });
     loadHospitalPortal();
     alert("✅ Hospital Portal Updated!");
+  }
+
+  // ============ 4-STEP USER GUIDE ============
+  const GUIDE_STEPS = [
+    {
+      ico: "📞",
+      title: "1. Live Call Ali Vepa AI (सीधे बात करें)",
+      desc: "Type karne ki zaroorat nahi! Green 'Live Call' button dabayein aur apni bhasha (English, Hindi, Gujarati, Turkish) mein bolkar takleef batayein. AI aapko sahi doctor aur sachai batayega."
+    },
+    {
+      ico: "📸",
+      title: "2. Report & Medicine Photo Scan",
+      desc: "Blood Test, X-Ray, MRI, ya doctor ki parchi ki photo khinchein. MIRACLE aam bhasha mein samjhayega ki kya normal hai, kya zaroori hai, aur dawai ka sasta generic salt kya hai."
+    },
+    {
+      ico: "🚑",
+      title: "3. Emergency Family & Ambulance SOS",
+      desc: "1 baar 'Family ICE' mein apna Blood Group aur parivar ka number save karein. Musibat mein Red SOS dabate hi Ambulance Call aur parivar ko Live Moving GPS mil jayega."
+    },
+    {
+      ico: "🏥",
+      title: "4. 10km Verified Doctors & Free Camps",
+      desc: "Apne 10 km ke andar sachai wale Verified Doctors aur Free Health Camps dekhein aur 1 click mein free slot book karein. (Hospitals ke liye upar 'Healthcare Service' tab hai)."
+    }
+  ];
+  let guideIdx = 0;
+
+  function openGuideModal() {
+    guideIdx = 0;
+    renderGuideStep();
+    document.getElementById("guideModal").classList.remove("hidden");
+  }
+
+  function closeGuideModal() {
+    window.speechSynthesis.cancel();
+    document.getElementById("guideModal").classList.add("hidden");
+  }
+
+  function renderGuideStep() {
+    const s = GUIDE_STEPS[guideIdx];
+    document.getElementById("guideStepBadge").innerText = `Step ${guideIdx + 1} of ${GUIDE_STEPS.length}`;
+    document.getElementById("guideIcon").innerText = s.ico;
+    document.getElementById("guideTitle").innerText = s.title;
+    document.getElementById("guideDesc").innerText = s.desc;
+    document.getElementById("btnGuidePrev").style.visibility = guideIdx === 0 ? "hidden" : "visible";
+    document.getElementById("btnGuideNext").innerText = guideIdx === GUIDE_STEPS.length - 1 ? "✅ Start App" : "Next ➡️";
+  }
+
+  function nextGuideStep() {
+    window.speechSynthesis.cancel();
+    if (guideIdx < GUIDE_STEPS.length - 1) {
+      guideIdx++;
+      renderGuideStep();
+    } else {
+      closeGuideModal();
+    }
+  }
+
+  function prevGuideStep() {
+    window.speechSynthesis.cancel();
+    if (guideIdx > 0) {
+      guideIdx--;
+      renderGuideStep();
+    }
+  }
+
+  function speakCurrentGuide() {
+    const s = GUIDE_STEPS[guideIdx];
+    speakTextFallback(`${s.title}. ${s.desc}`, "hi-IN");
   }
 </script>
 </body>
