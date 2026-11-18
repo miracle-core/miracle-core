@@ -122,9 +122,23 @@
   </div>
   <select id="langSelect" class="lang-pick" onchange="updateLabels()">
     <option value="hinglish">🇮🇳 Hinglish / हिन्दी</option>
-    <option value="hi">🇮🇳 शुद्ध हिन्दी</option>
-    <option value="en">🌍 English</option>
-    <option value="tr">🇹🇷 Türkçe</option>
+    <option value="Hindi (hi-IN)">🇮🇳 शुद्ध हिन्दी</option>
+    <option value="Gujarati (gu-IN)">🇮🇳 ગુજરાતી (Gujarati)</option>
+    <option value="Marathi (mr-IN)">🇮🇳 मराठी (Marathi)</option>
+    <option value="Bengali (bn-IN)">🇮🇳 বাংলা (Bengali)</option>
+    <option value="Tamil (ta-IN)">🇮🇳 தமிழ் (Tamil)</option>
+    <option value="Telugu (te-IN)">🇮🇳 తెలుగు (Telugu)</option>
+    <option value="Urdu (ur-PK)">🇵🇰 اردو (Urdu)</option>
+    <option value="English (en-US)">🌍 English (Global)</option>
+    <option value="Turkish (tr-TR)">🇹🇷 Türkçe (Istanbul)</option>
+    <option value="Arabic (ar-SA)">🇸🇦 العربية (Arabic)</option>
+    <option value="Spanish (es-ES)">🇪🇸 Español</option>
+    <option value="French (fr-FR)">🇫🇷 Français</option>
+    <option value="German (de-DE)">🇩🇪 Deutsch</option>
+    <option value="Russian (ru-RU)">🇷🇺 Русский</option>
+    <option value="Indonesian (id-ID)">🇮🇩 Bahasa Indonesia</option>
+    <option value="Portuguese (pt-BR)">🇧🇷 Português</option>
+    <option value="auto-detect user language">🌐 Auto-Detect</option>
   </select>
 </header>
 
@@ -285,19 +299,26 @@
 
   function getSpeechLang() {
     const l = document.getElementById("langSelect").value;
-    if (l === "hi" || l === "hinglish") return "hi-IN";
-    if (l === "tr") return "tr-TR";
-    return "en-IN";
+    const match = l.match(/\(([a-z]{2}-[A-Z]{2})\)/);
+    if (match) return match[1];
+    if (l === "hinglish") return "hi-IN";
+    return navigator.language || "en-US";
   }
 
   function updateLabels() {
     const l = document.getElementById("langSelect").value;
-    if (l === "tr") {
+    if (l.includes("tr-TR")) {
       document.getElementById("lblCall").innerText = "Canlı Sesli Arama (Doktor AI)";
       document.getElementById("lblCallSub").innerText = "Yazmaya gerek yok • Telefon görüşmesi gibi konuşun";
-    } else if (l === "en") {
-      document.getElementById("lblCall").innerText = "Live Voice Call (Jarvis AI)";
-      document.getElementById("lblCallSub").innerText = "No typing needed • Talk just like a phone call";
+    } else if (l.includes("gu-IN")) {
+      document.getElementById("lblCall").innerText = "લાઇવ વૉઇસ કૉલ (ડૉક્ટર AI)";
+      document.getElementById("lblCallSub").innerText = "ટાઇપ કરવાની જરૂર નથી • સીધી વાત કરો";
+    } else if (l.includes("ar-SA")) {
+      document.getElementById("lblCall").innerText = "مكالمة صوتية مباشرة (الطبيب الذكي)";
+      document.getElementById("lblCallSub").innerText = "تحدث مباشرة دون كتابة";
+    } else if (l.includes("en-US") || l.includes("es-") || l.includes("fr-") || l.includes("de-") || l.includes("ru-") || l.includes("id-") || l.includes("pt-") || l.includes("auto")) {
+      document.getElementById("lblCall").innerText = "Live Voice Call (Jarvis Health AI)";
+      document.getElementById("lblCallSub").innerText = "No typing needed • Speak naturally in your language";
     } else {
       document.getElementById("lblCall").innerText = "Live Call Doctor AI (सीधे बात करें)";
       document.getElementById("lblCallSub").innerText = "Type karne ki zaroorat nahi • Phone call jaisa baat karein";
@@ -340,11 +361,15 @@
     }
 
     const lang = document.getElementById("langSelect").value;
-    const greet = lang === "tr"
+    const greet = lang.includes("tr-TR")
       ? "Merhaba, ben MIRACLE Jarvis. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
-      : lang === "en"
-      ? "Hello, I am MIRACLE Jarvis. Please tell me how you are feeling, I am listening."
-      : "Namaste, main MIRACLE Jarvis hoon. Aap apni takleef bataiye, main sun raha hoon.";
+      : lang.includes("gu-IN")
+      ? "નમસ્તે, હું મિરેકલ જાર્વિસ છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
+      : lang.includes("ar-SA")
+      ? "مرحباً، أنا ميراكل جارفيس. تفضل بإخباري بما تشعر به."
+      : (lang === "hinglish" || lang.includes("hi-IN") || lang.includes("mr-IN") || lang.includes("ur-PK"))
+      ? "Namaste, main MIRACLE Jarvis hoon. Aap apni takleef bataiye, main sun raha hoon."
+      : "Hello, I am MIRACLE Jarvis. Please speak in your language, I am listening.";
 
     document.getElementById("callStatusText").innerText = "🗣️ Jarvis Bol Raha Hai...";
     document.getElementById("callTranscript").innerHTML = `<b>Jarvis:</b> ${greet}`;

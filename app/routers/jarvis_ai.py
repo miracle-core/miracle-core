@@ -16,8 +16,6 @@ from app.strategist_agent import get_config, set_config, record_metric
 
 router = APIRouter(prefix="/api/jarvis", tags=["Jarvis Medical AI"])
 
-GEMINI_MODEL = "gemini-2.5-flash"
-
 
 class AskRequest(BaseModel):
     symptoms: str
@@ -64,6 +62,31 @@ def find_nearby_verified_care(
         return []
 
 
+async def fetch_public_nearby_names(lat: Optional[float], lng: Optional[float], radius_km: int = 10):
+    if lat is None or lng is None:
+        return []
+    overpass_query = f"""
+    [out:json][timeout:8];
+    (
+      node["amenity"~"hospital|clinic|doctors"](around:{radius_km * 1000},{lat},{lng});
+    );
+    out 5;
+    """
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            res = await client.post("https://overpass-api.de/api/interpreter", data={"data": overpass_query})
+        if res.status_code != 200:
+            return []
+        out = []
+        for el in res.json().get("elements", []):
+            name = el.get("tags", {}).get("name")
+            if name:
+                out.append({"name": name, "type": el.get("tags", {}).get("amenity", "clinic")})
+        return out[:5]
+    except Exception:
+        return []
+
+
 async def call_openai(user_prompt: str, image_bytes: bytes = None, mime_type: str = None) -> dict:
     oai_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not oai_key:
@@ -79,7 +102,7 @@ async def call_openai(user_prompt: str, image_bytes: bytes = None, mime_type: st
             {"role": "system", "content": MIRACLE_SYSTEM_PROMPT},
             {"role": "user", "content": content},
         ],
-        "temperature": 0.2,
+        "temperature": 0.3,
     }
     async with httpx.AsyncClient(timeout=45) as client:
         res = await client.post(
@@ -105,7 +128,7 @@ async def call_ai_smart(
 
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured.")
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY Render Environment mein set nahi hai!")
 
     parts = [{"text": user_prompt}]
     if image_bytes and mime_type:
@@ -114,15 +137,21 @@ async def call_ai_smart(
     payload = {
         "systemInstruction": {"parts": [{"text": MIRACLE_SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+        "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"},
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
-    async with httpx.AsyncClient(timeout=45) as client:
-        res = await client.post(url, json=payload)
+
+    res = None
+    for model_name in ["gemini-2.5-flash", "gemini-2.0-flash"]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        async with httpx.AsyncClient(timeout=45) as client:
+            res = await client.post(url, json=payload)
+        if res.status_code == 200:
+            break
+        if res.status_code not in (400, 404):
+            break
 
     latency = int((time.time() - start) * 1000)
 
-    # Auto-Failover if Gemini hits rate limit & OpenAI key is ready
     if res.status_code == 429 and os.getenv("OPENAI_API_KEY"):
         record_metric(db, feature, 429, latency)
         set_config(db, "ai_provider", "openai")
@@ -130,16 +159,19 @@ async def call_ai_smart(
 
     if res.status_code != 200:
         record_metric(db, feature, res.status_code, latency)
-        raise HTTPException(status_code=502, detail=f"AI Provider Error: {res.text[:300]}")
+        raise HTTPException(status_code=502, detail=f"Gemini API Error ({res.status_code}): {res.text[:250]}")
 
     data = res.json()
     try:
-        parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+        raw_txt = data["candidates"][0]["content"]["parts"][0]["text"]
+        cleaned = raw_txt.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(cleaned)
     except Exception:
         parsed = {
             "emergency_flag": False,
             "detected_department": "General Physician",
-            "simple_summary": str(data)[:800],
+            "voice_reply": "Aapki baat samajh aa gayi. Kripya apni takleef thodi aur detail mein batayein.",
+            "simple_summary": str(data)[:600],
             "disclaimer": "Please consult a licensed doctor for confirmation.",
         }
 
@@ -149,11 +181,27 @@ async def call_ai_smart(
 
 @router.post("/ask")
 async def ask_jarvis(req: AskRequest, db: Session = Depends(get_db)):
+    # Pre-fetch nearby clinics & public hospitals so Jarvis can mention them directly in voice!
+    nearby_verified = find_nearby_verified_care(db, "", req.lat, req.lng, radius_km=10)
+    public_nearby = [] if nearby_verified else await fetch_public_nearby_names(req.lat, req.lng, radius_km=10)
+
+    nearby_context = ""
+    if nearby_verified:
+        nearby_context = "Verified Clinics within 10km: " + ", ".join(
+            [f"{c['name']} ({c['specialty']}, {c['distance_km']} km)" for c in nearby_verified]
+        )
+    elif public_nearby:
+        nearby_context = "Nearby Public Hospitals/Clinics within 10km: " + ", ".join(
+            [f"{p['name']} ({p['type']})" for p in public_nearby]
+        )
+
     prompt = (
         f"Preferred Language: {req.language}\n"
-        f"Patient Symptoms / Question: {req.symptoms}\n"
-        f"Medical History / Ongoing Meds / Allergies: {req.history or 'Not provided'}\n"
-        f"Analyze carefully and provide unbiased second-opinion guidance in JSON."
+        f"Conversation History: {req.history or 'None (First message)'}\n"
+        f"Patient Latest Message / Question: {req.symptoms}\n"
+        f"Patient GPS Location Available: {'Yes' if (req.lat and req.lng) else 'No'}\n"
+        f"{nearby_context}\n\n"
+        f"Answer directly and warmly in JSON. If they ask which doctor or where nearby, use the specialist & nearby hospitals context."
     )
     ai_result = await call_ai_smart(db, "jarvis_ask", prompt)
     dept = ai_result.get("detected_department", "General Physician")
@@ -168,8 +216,12 @@ async def ask_jarvis(req: AskRequest, db: Session = Depends(get_db)):
     db.add(log)
     db.commit()
 
-    nearby = find_nearby_verified_care(db, dept, req.lat, req.lng, radius_km=10)
-    return {"ai_guidance": ai_result, "nearby_verified_specialists_10km": nearby}
+    dept_verified = find_nearby_verified_care(db, dept, req.lat, req.lng, radius_km=10)
+    return {
+        "ai_guidance": ai_result,
+        "nearby_verified_specialists_10km": dept_verified or nearby_verified,
+        "nearby_public_hospitals_10km": public_nearby,
+    }
 
 
 @router.post("/scan-report")
