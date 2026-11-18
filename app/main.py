@@ -15,6 +15,7 @@ from app.telegram_bot import handle_telegram_update, notify_owner
 from app.watchdog import run_watchdog, send_daily_report
 from app.routers.jarvis_ai import router as jarvis_router
 from app.routers.geo_ads import router as geo_ads_router
+from app.routers.sales_agent import router as sales_router, run_ai_outreach_batch
 
 WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "miracle_secret_2025")
 CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
@@ -26,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MIRACLE Health AI Core", version="1.2.0", lifespan=lifespan)
+app = FastAPI(title="MIRACLE Health AI Core", version="1.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +38,7 @@ app.add_middleware(
 
 app.include_router(jarvis_router)
 app.include_router(geo_ads_router)
+app.include_router(sales_router)
 
 
 @app.get("/")
@@ -67,6 +69,13 @@ async def cron_daily_report(secret: str, db: Session = Depends(get_db)):
     if secret != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return await send_daily_report(db)
+
+
+@app.get("/api/cron/outreach")
+async def cron_outreach(secret: str, limit: int = 5, db: Session = Depends(get_db)):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return await run_ai_outreach_batch(limit=limit, db=db)
 
 
 @app.post("/api/telegram/webhook")
