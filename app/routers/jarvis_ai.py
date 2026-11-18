@@ -20,29 +20,29 @@ from app.strategist_agent import get_config, set_config, record_metric
 router = APIRouter(prefix="/api/jarvis", tags=["Jarvis Medical AI"])
 
 NEURAL_VOICES = {
-    "hi": "hi-IN-SwaraNeural",
-    "gu": "gu-IN-DhwaniNeural",
-    "mr": "mr-IN-AarohiNeural",
-    "bn": "bn-IN-TanishaaNeural",
-    "ta": "ta-IN-PallaviNeural",
-    "te": "te-IN-ShrutiNeural",
-    "ur": "ur-PK-UzmaNeural",
-    "en": "en-IN-NeerjaNeural",
-    "tr": "tr-TR-EmelNeural",
-    "ar": "ar-SA-ZariyahNeural",
-    "es": "es-ES-ElviraNeural",
-    "fr": "fr-FR-DeniseNeural",
-    "de": "de-DE-KatjaNeural",
-    "ru": "ru-RU-SvetlanaNeural",
-    "id": "id-ID-GadisNeural",
-    "pt": "pt-BR-FranciscaNeural",
+    "en": "en-US-GuyNeural",
+    "hi": "hi-IN-MadhurNeural",
+    "gu": "gu-IN-NiranjanNeural",
+    "mr": "mr-IN-ManoharNeural",
+    "bn": "bn-IN-BashkarNeural",
+    "ta": "ta-IN-ValluvarNeural",
+    "te": "te-IN-MohanNeural",
+    "ur": "ur-PK-AsadNeural",
+    "tr": "tr-TR-AhmetNeural",
+    "ar": "ar-SA-HamedNeural",
+    "es": "es-ES-AlvaroNeural",
+    "fr": "fr-FR-HenriNeural",
+    "de": "de-DE-ConradNeural",
+    "ru": "ru-RU-DmitryNeural",
+    "id": "id-ID-ArdiNeural",
+    "pt": "pt-BR-AntonioNeural",
 }
 
 
 class AskRequest(BaseModel):
     symptoms: str
     history: Optional[str] = ""
-    language: Optional[str] = "auto-detect"
+    language: Optional[str] = "en"
     lat: Optional[float] = None
     lng: Optional[float] = None
 
@@ -50,8 +50,8 @@ class AskRequest(BaseModel):
 async def synthesize_clear_voice(text_to_speak: str, lang_code: str) -> str:
     if not text_to_speak or not text_to_speak.strip():
         return ""
-    short_lang = (lang_code or "hi").split("-")[0].lower()
-    voice_name = NEURAL_VOICES.get(short_lang, "en-IN-NeerjaNeural")
+    short_lang = (lang_code or "en").split("-")[0].lower()
+    voice_name = NEURAL_VOICES.get(short_lang, "en-US-GuyNeural")
 
     # 1. Try Studio Neural Voice (edge-tts)
     try:
@@ -227,7 +227,7 @@ async def call_gemini_multimodal(
 async def voice_call_turn(
     audio: UploadFile = File(...),
     history: str = Form(default=""),
-    preferred_lang: str = Form(default="auto"),
+    preferred_lang: str = Form(default="en"),
     lat: Optional[float] = Form(default=None),
     lng: Optional[float] = Form(default=None),
     db: Session = Depends(get_db),
@@ -379,3 +379,24 @@ async def scan_medical_report(
         "audio_base64": audio_b64,
         "nearby_verified_specialists_10km": nearby,
     }
+
+@router.get("/greet")
+async def get_male_greeting(lang: str = "en"):
+    l = lang.lower()
+    if "tr" in l:
+        txt = "Merhaba, ben MIRACLE Ali Vepa AI. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
+        code = "tr"
+    elif "gu" in l:
+        txt = "નમસ્તે, હું મિરેકલ અલી વેપા AI છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
+        code = "gu"
+    elif "ar" in l:
+        txt = "مرحباً، أنا ميراكل علي فيبا AI. تفضل بإخباري بما تشعر به."
+        code = "ar"
+    elif "hi" in l or "hinglish" in l or "mr" in l or "ur" in l:
+        txt = "Namaste, main MIRACLE Ali Vepa AI hoon. Aap apni takleef boliye, main sun raha hoon."
+        code = "hi"
+    else:
+        txt = "Hello, I am MIRACLE Ali Vepa AI. Please tell me how you are feeling, I am listening."
+        code = "en"
+    audio_b64 = await synthesize_clear_voice(txt, code)
+    return {"text": txt, "lang": code, "audio_base64": audio_b64}

@@ -121,6 +121,7 @@
     </div>
   </div>
   <select id="langSelect" class="lang-pick" onchange="updateLabels()">
+    <option value="English (en-US)" selected>🌍 English (Default)</option>
     <option value="hinglish">🇮🇳 Hinglish / हिन्दी</option>
     <option value="Hindi (hi-IN)">🇮🇳 शुद्ध हिन्दी</option>
     <option value="Gujarati (gu-IN)">🇮🇳 ગુજરાતી (Gujarati)</option>
@@ -129,7 +130,6 @@
     <option value="Tamil (ta-IN)">🇮🇳 தமிழ் (Tamil)</option>
     <option value="Telugu (te-IN)">🇮🇳 తెలుగు (Telugu)</option>
     <option value="Urdu (ur-PK)">🇵🇰 اردو (Urdu)</option>
-    <option value="English (en-US)">🌍 English (Global)</option>
     <option value="Turkish (tr-TR)">🇹🇷 Türkçe (Istanbul)</option>
     <option value="Arabic (ar-SA)">🇸🇦 العربية (Arabic)</option>
     <option value="Spanish (es-ES)">🇪🇸 Español</option>
@@ -152,8 +152,8 @@
   <div class="big-grid">
     <button class="big-btn btn-call" onclick="startVoiceCall()">
       <span class="ico">📞</span>
-      <span id="lblCall">Live Call Ali Vepa AI (सीधे बात करें)</span>
-      <small id="lblCallSub">Type karne ki zaroorat nahi • Phone call jaisa baat karein</small>
+      <span id="lblCall">Live Call Ali Vepa AI</span>
+      <small id="lblCallSub">No typing needed • Talk naturally in any language</small>
     </button>
 
     <button class="big-btn btn-scan" onclick="showSection('scanSection')">
@@ -404,19 +404,21 @@
     callAudioPlayer.src = "";
 
     const lang = document.getElementById("langSelect").value;
-    const greet = lang.includes("tr-TR")
-      ? "Merhaba, ben MIRACLE Ali Vepa AI. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
-      : lang.includes("gu-IN")
-      ? "નમસ્તે, હું મિરેકલ અલી વેપા AI છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
-      : lang.includes("en-")
-      ? "Hello, I am MIRACLE Ali Vepa AI. Speak naturally in any language, I am listening."
-      : "Namaste, main MIRACLE Ali Vepa AI hoon. Aap kisi bhi bhasha mein apni takleef boliye, main sun raha hoon.";
-
-    document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Bol Raha Hai...";
-    document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
-    speakTextFallback(greet, getSpeechLang(), () => {
-      if (callActive) recordVoiceTurn();
-    });
+    document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Connecting...";
+    try {
+      const gRes = await fetch(`/api/jarvis/greet?lang=${encodeURIComponent(lang)}`);
+      const gData = await gRes.json();
+      const greet = gData.text || "Hello, I am MIRACLE Ali Vepa AI. Please tell me how you are feeling.";
+      document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Speaking...";
+      document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
+      playServerOrFallbackAudio(gData.audio_base64, greet, gData.lang || "en", () => {
+        if (callActive) recordVoiceTurn();
+      });
+    } catch (e) {
+      const greet = "Hello, I am MIRACLE Ali Vepa AI. Please tell me how you are feeling.";
+      document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
+      speakTextFallback(greet, "en-US", () => { if (callActive) recordVoiceTurn(); });
+    }
   }
 
   function recordVoiceTurn() {
