@@ -114,7 +114,7 @@ async def handle_telegram_update(update: dict, db: Session):
 
     if text.startswith("/start") or text.startswith("/help"):
         await notify_owner(
-            "🤖 <b>MIRACLE Jarvis Command Center</b>\n\n"
+            "🤖 <b>MIRACLE • Ali Vepa AI Command Center</b>\n\n"
             "/stats - Aaj ka live data\n"
             "/strategist - Crowd & Paid Upgrade Report\n"
             "/switches - AI / Payment / WhatsApp switch karein\n"

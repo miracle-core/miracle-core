@@ -152,7 +152,7 @@
   <div class="big-grid">
     <button class="big-btn btn-call" onclick="startVoiceCall()">
       <span class="ico">📞</span>
-      <span id="lblCall">Live Call Doctor AI (सीधे बात करें)</span>
+      <span id="lblCall">Live Call Ali Vepa AI (सीधे बात करें)</span>
       <small id="lblCallSub">Type karne ki zaroorat nahi • Phone call jaisa baat karein</small>
     </button>
 
@@ -246,7 +246,7 @@
 <div id="callOverlay" class="hidden">
   <div>
     <div style="font-size:13px; opacity:0.8; letter-spacing:1px;">MIRACLE LIVE VOICE CONSULT</div>
-    <h2 style="margin:6px 0;">Dr. Jarvis AI</h2>
+    <h2 style="margin:6px 0;">Ali Vepa AI</h2>
     <div id="callTimer" style="font-size:16px; color:#86efac;">Connecting...</div>
   </div>
 
@@ -311,19 +311,19 @@
   function updateLabels() {
     const l = document.getElementById("langSelect").value;
     if (l.includes("tr-TR")) {
-      document.getElementById("lblCall").innerText = "Canlı Sesli Arama (Doktor AI)";
+      document.getElementById("lblCall").innerText = "Canlı Sesli Arama (Ali Vepa AI)";
       document.getElementById("lblCallSub").innerText = "Yazmaya gerek yok • Telefon görüşmesi gibi konuşun";
     } else if (l.includes("gu-IN")) {
-      document.getElementById("lblCall").innerText = "લાઇવ વૉઇસ કૉલ (ડૉક્ટર AI)";
+      document.getElementById("lblCall").innerText = "લાઇવ વૉઇસ કૉલ (અલી વેપા AI)";
       document.getElementById("lblCallSub").innerText = "ટાઇપ કરવાની જરૂર નથી • સીધી વાત કરો";
     } else if (l.includes("ar-SA")) {
       document.getElementById("lblCall").innerText = "مكالمة صوتية مباشرة (الطبيب الذكي)";
       document.getElementById("lblCallSub").innerText = "تحدث مباشرة دون كتابة";
     } else if (l.includes("en-US") || l.includes("es-") || l.includes("fr-") || l.includes("de-") || l.includes("ru-") || l.includes("id-") || l.includes("pt-") || l.includes("auto")) {
-      document.getElementById("lblCall").innerText = "Live Voice Call (Jarvis Health AI)";
+      document.getElementById("lblCall").innerText = "Live Voice Call (Ali Vepa AI)";
       document.getElementById("lblCallSub").innerText = "No typing needed • Speak naturally in your language";
     } else {
-      document.getElementById("lblCall").innerText = "Live Call Doctor AI (सीधे बात करें)";
+      document.getElementById("lblCall").innerText = "Live Call Ali Vepa AI (सीधे बात करें)";
       document.getElementById("lblCallSub").innerText = "Type karne ki zaroorat nahi • Phone call jaisa baat karein";
     }
   }
@@ -405,15 +405,15 @@
 
     const lang = document.getElementById("langSelect").value;
     const greet = lang.includes("tr-TR")
-      ? "Merhaba, ben MIRACLE Jarvis. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
+      ? "Merhaba, ben MIRACLE Ali Vepa AI. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
       : lang.includes("gu-IN")
-      ? "નમસ્તે, હું મિરેકલ જાર્વિસ છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
+      ? "નમસ્તે, હું મિરેકલ અલી વેપા AI છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
       : lang.includes("en-")
-      ? "Hello, I am MIRACLE Jarvis. Speak naturally in any language, I am listening."
-      : "Namaste, main MIRACLE Jarvis hoon. Aap kisi bhi bhasha mein apni takleef boliye, main sun raha hoon.";
+      ? "Hello, I am MIRACLE Ali Vepa AI. Speak naturally in any language, I am listening."
+      : "Namaste, main MIRACLE Ali Vepa AI hoon. Aap kisi bhi bhasha mein apni takleef boliye, main sun raha hoon.";
 
-    document.getElementById("callStatusText").innerText = "🗣️ Jarvis Bol Raha Hai...";
-    document.getElementById("callTranscript").innerHTML = `<b>Jarvis:</b> ${greet}`;
+    document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Bol Raha Hai...";
+    document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
     speakTextFallback(greet, getSpeechLang(), () => {
       if (callActive) recordVoiceTurn();
     });
@@ -487,7 +487,7 @@
   }
 
   async function sendAudioTurn(blob, mime) {
-    document.getElementById("callStatusText").innerText = "⏳ Jarvis Sun Kar Samajh Raha Hai...";
+    document.getElementById("callStatusText").innerText = "⏳ Ali Vepa AI Sun Kar Samajh Raha Hai...";
     try {
       const fd = new FormData();
       fd.append("audio", blob, "voice.webm");
@@ -515,12 +515,12 @@
         : (g.voice_reply || g.simple_summary || "Kripya phir se bolein.");
 
       if (g.user_transcript) {
-        callHistory.push(`Patient: ${userSaid} -> Jarvis (${g.detected_department}, lang:${g.detected_lang}): ${reply}`);
+        callHistory.push(`Patient: ${userSaid} -> Ali Vepa AI (${g.detected_department}, lang:${g.detected_lang}): ${reply}`);
       }
 
       document.getElementById("callTranscript").innerHTML =
-        `<b>Aap (${g.detected_lang || 'auto'}):</b> ${userSaid}<br/><br/><b>Jarvis (${g.detected_department || 'Care'}):</b> ${reply}`;
-      document.getElementById("callStatusText").innerText = "🗣️ Jarvis Jawab De Raha Hai...";
+        `<b>Aap (${g.detected_lang || 'auto'}):</b> ${userSaid}<br/><br/><b>Ali Vepa AI (${g.detected_department || 'Care'}):</b> ${reply}`;
+      document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Jawab De Raha Hai...";
 
       playServerOrFallbackAudio(data.audio_base64, reply, g.detected_lang, () => {
         if (callActive) recordVoiceTurn();
@@ -591,7 +591,7 @@
   function showLoadingResult() {
     const rc = document.getElementById("resultCard");
     rc.classList.remove("hidden");
-    document.getElementById("resultContent").innerHTML = "<p>⏳ Jarvis report aur guidelines check kar raha hai...</p>";
+    document.getElementById("resultContent").innerHTML = "<p>⏳ Ali Vepa AI report aur guidelines check kar raha hai...</p>";
   }
 
   function renderResult(data) {
