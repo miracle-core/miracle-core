@@ -109,7 +109,13 @@ async def handle_telegram_update(update: dict, db: Session):
     text = msg.get("text", "").strip()
 
     if sender_id != str(OWNER_ID):
-        await send_telegram_message(sender_id, "⛔ Yeh MIRACLE Owner Command Center hai.")
+        await send_telegram_message(
+            sender_id,
+            f"🩺 <b>MIRACLE Emergency Family Alert Connected!</b>\n\n"
+            f"Aapka <b>Family SOS ID</b> hai: <code>{sender_id}</code>\n"
+            f"Is number ko apne parivar ke MIRACLE App -> SOS -> 'Family Telegram ID' mein save kar dein. "
+            f"Emergency mein aapko seedha yahan Live GPS Tracking milega!"
+        )
         return {"ok": True}
 
     if text.startswith("/start") or text.startswith("/help"):

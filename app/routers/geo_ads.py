@@ -515,3 +515,61 @@ def get_sos_track(track_id: str, db: Session = Depends(get_db)):
         "is_active": row.is_active,
         "updated_at": row.updated_at.strftime("%H:%M:%S UTC") if row.updated_at else "",
     }
+
+
+class SosDispatchRequest(BaseModel):
+    lat: float
+    lng: float
+    track_id: Optional[str] = None
+    patient_name: Optional[str] = "Patient"
+    blood_group: Optional[str] = ""
+    medical_note: Optional[str] = ""
+    fam_phone: Optional[str] = ""
+    fam_email: Optional[str] = ""
+    fam_tg_id: Optional[str] = ""
+    test_mode: bool = False
+    base_url: Optional[str] = ""
+
+
+@router.post("/sos-dispatch")
+async def dispatch_direct_sos(req: SosDispatchRequest):
+    from app.telegram_bot import send_telegram_message
+    from app.routers.sales_agent import send_smtp_email, send_whatsapp_cloud
+
+    maps_url = f"https://maps.google.com/?q={req.lat},{req.lng}"
+    track_url = f"{req.base_url.rstrip('/')}/track/{req.track_id}" if (req.base_url and req.track_id) else maps_url
+    prefix = "🧪 [TEST] " if req.test_mode else "🚨 EMERGENCY SOS! "
+
+    msg_plain = (
+        f"{prefix}{req.patient_name} needs urgent help!\n"
+        f"Blood Group: {req.blood_group or 'N/A'} | Note: {req.medical_note or 'None'}\n"
+        f"Live Location Tracker: {track_url}\n"
+        f"Google Maps Pin: {maps_url}"
+    )
+    msg_html = (
+        f"<b>{prefix}</b>\n"
+        f"👤 <b>Patient:</b> {req.patient_name} | 🩸 <b>Blood:</b> {req.blood_group or 'N/A'}\n"
+        f"⚠️ <b>Note:</b> {req.medical_note or 'None'}\n"
+        f"📡 <a href='{track_url}'>Open Live Moving Tracker</a>\n"
+        f"📍 <a href='{maps_url}'>Open Google Maps Pin</a>"
+    )
+
+    sent_channels = []
+
+    # 1. Direct Server Telegram to Family
+    if req.fam_tg_id:
+        await send_telegram_message(req.fam_tg_id.strip(), msg_html)
+        sent_channels.append("Family Telegram")
+
+    # 2. Direct Server Email to Family (if SMTP configured)
+    if req.fam_email and send_smtp_email(req.fam_email.strip(), f"{prefix}Urgent Location Alert - {req.patient_name}", msg_plain):
+        sent_channels.append("Family Email")
+
+    # 3. Direct Server WhatsApp Cloud API (Auto-active when WHATSAPP_TOKEN added)
+    if req.fam_phone and await send_whatsapp_cloud(req.fam_phone.strip(), msg_plain):
+        sent_channels.append("Auto WhatsApp API")
+
+    # 4. Always notify Owner Telegram log
+    await notify_owner(msg_html + f"\n✅ <i>Server Dispatched: {', '.join(sent_channels) or 'Backup Link Ready'}</i>")
+
+    return {"dispatched": sent_channels, "track_url": track_url}

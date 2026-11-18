@@ -204,6 +204,8 @@
         <input type="text" id="iceMed" placeholder="Allergy / Disease (e.g. Diabetes, Heart)" />
         <input type="text" id="iceFam1" placeholder="Family Contact 1 (+91... / +90...)" />
         <input type="text" id="iceFam2" placeholder="Family Contact 2 (Optional)" />
+        <input type="email" id="iceFamEmail" placeholder="Family Email (Direct Server Alert)" />
+        <input type="text" id="iceFamTg" placeholder="Family Telegram ID (Bot par /start bhej kar lein)" />
         <button class="primary-btn" style="background:#991b1b;" onclick="saveIceProfile()">💾 Save Emergency Profile</button>
       </div>
     </details>
@@ -872,6 +874,8 @@
     document.getElementById("iceMed").value = p.med || "";
     document.getElementById("iceFam1").value = p.fam1 || "";
     document.getElementById("iceFam2").value = p.fam2 || "";
+    document.getElementById("iceFamEmail").value = p.famEmail || "";
+    document.getElementById("iceFamTg").value = p.famTg || "";
 
     const box = document.getElementById("iceCardDisplay");
     if (!p.name && !p.fam1) {
@@ -888,6 +892,8 @@
       med: document.getElementById("iceMed").value.trim(),
       fam1: document.getElementById("iceFam1").value.trim(),
       fam2: document.getElementById("iceFam2").value.trim(),
+      famEmail: document.getElementById("iceFamEmail").value.trim(),
+      famTg: document.getElementById("iceFamTg").value.trim(),
     };
     localStorage.setItem("miracle_ice", JSON.stringify(p));
     renderIceBox();
@@ -971,11 +977,28 @@
     document.getElementById("sosLocationText").innerHTML =
       `📍 Live GPS: ${userLat.toFixed(5)}, ${userLng.toFixed(5)} • <a href="${mapsPin}" target="_blank">Open Map Pin</a>`;
 
-    // Log SOS in background
-    fetch("/api/clinics/sos-alert", {
+    // Direct Server-Side SOS Dispatch (No need to unlock patient WhatsApp!)
+    const iceForDispatch = getIceProfile();
+    fetch("/api/clinics/sos-dispatch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lat: userLat, lng: userLng, note: document.getElementById("sosTestMode")?.checked ? "TEST MODE SOS Check (Ignore)" : "Patient tapped Emergency Ambulance SOS" }),
+      body: JSON.stringify({
+        lat: userLat,
+        lng: userLng,
+        track_id: activeTrackId,
+        patient_name: iceForDispatch.name || "Patient",
+        blood_group: iceForDispatch.blood || "",
+        medical_note: iceForDispatch.med || "",
+        fam_phone: iceForDispatch.fam1 || "",
+        fam_email: iceForDispatch.famEmail || "",
+        fam_tg_id: iceForDispatch.famTg || "",
+        test_mode: !!document.getElementById("sosTestMode")?.checked,
+        base_url: window.location.origin,
+      }),
+    }).then(r => r.json()).then(d => {
+      if (d.dispatched && d.dispatched.length) {
+        document.getElementById("sosLocationText").innerHTML += `<br/><span style="color:#15803d;">✅ Direct Server Alert Sent To: ${d.dispatched.join(", ")}</span>`;
+      }
     }).catch(() => {});
 
     try {
