@@ -55,6 +55,11 @@ def serve_admin():
     return FileResponse("static/admin.html")
 
 
+@app.get("/track/{track_id}")
+def serve_track(track_id: str):
+    return FileResponse("static/track.html")
+
+
 @app.get("/privacy")
 def serve_privacy():
     return FileResponse("static/privacy.html")

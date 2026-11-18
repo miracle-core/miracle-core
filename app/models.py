@@ -104,3 +104,16 @@ class UsageMetric(Base):
     status_code = Column(Integer, default=200)
     latency_ms = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SosTrack(Base):
+    __tablename__ = "sos_tracks"
+
+    track_id = Column(String(30), primary_key=True, index=True)
+    patient_name = Column(String(120), default="Patient")
+    blood_group = Column(String(20), default="")
+    medical_note = Column(String(250), default="")
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    is_active = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)

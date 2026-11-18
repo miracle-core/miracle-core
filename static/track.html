@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIRACLE • Live SOS Location Tracker</title>
+  <style>
+    body{font-family:sans-serif;background:#fef2f2;margin:0;padding:16px;color:#1e293b;}
+    .card{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,0.1);border:2px solid #dc2626;}
+    .btn{display:block;text-align:center;background:#dc2626;color:#fff;padding:13px;border-radius:10px;text-decoration:none;font-weight:800;margin-top:12px;}
+    iframe{width:100%;height:260px;border:0;border-radius:12px;margin-top:12px;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="margin:0 0 6px;color:#b91c1c;">🚨 MIRACLE Live SOS Tracker</h2>
+    <div id="info">Loading live GPS...</div>
+    <iframe id="mapFrame"></iframe>
+    <a id="gmapBtn" class="btn" target="_blank">📍 Open Live Pin in Google Maps</a>
+  </div>
+<script>
+  const trackId = window.location.pathname.split("/").pop();
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/clinics/sos-track/${trackId}`);
+      if (!r.ok) { document.getElementById("info").innerText = "Tracking ID not found."; return; }
+      const d = await r.json();
+      document.getElementById("info").innerHTML = `
+        <b>👤 Patient:</b> ${d.patient_name} ${d.blood_group ? `| <b>🩸 Blood:</b> ${d.blood_group}` : ""}<br/>
+        ${d.medical_note ? `<b>⚠️ Medical Info:</b> ${d.medical_note}<br/>` : ""}
+        <b>📡 Status:</b> ${d.is_active ? "🟢 LIVE Tracking (Auto-refresh 5s)" : "⚪ Tracking Stopped"}<br/>
+        <b>🕒 Last GPS Update:</b> ${d.updated_at}
+      `;
+      document.getElementById("mapFrame").src = `https://maps.google.com/maps?q=${d.lat},${d.lng}&z=15&output=embed`;
+      document.getElementById("gmapBtn").href = `https://maps.google.com/?q=${d.lat},${d.lng}`;
+    } catch (e) {}
+  }
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

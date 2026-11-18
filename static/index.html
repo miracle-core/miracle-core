@@ -185,9 +185,26 @@
 
   <!-- EMERGENCY AMBULANCE SOS SECTION -->
   <div class="card hidden" id="sosSection" style="border:2px solid #dc2626; background:#fef2f2;">
-    <h3 style="color:#b91c1c;">🚑 Emergency Ambulance & Live GPS SOS</h3>
+    <h3 style="color:#b91c1c;">🚑 Emergency Family & Ambulance SOS</h3>
     <p id="sosLocationText" style="font-size:13px; font-weight:700; color:#7f1d1d;">📍 Fetching exact GPS...</p>
+
+    <!-- ICE Medical & Family Card -->
+    <div id="iceCardDisplay" style="background:#fff;border:1px solid #fca5a5;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;"></div>
+
+    <details style="background:#fff;border-radius:10px;padding:10px;margin-bottom:12px;border:1px solid #fecaca;">
+      <summary style="font-weight:700;color:#991b1b;cursor:pointer;">⚙️ Edit Emergency Family & Blood Group Info (1-Time Save)</summary>
+      <div style="margin-top:10px;">
+        <input type="text" id="iceName" placeholder="Patient Name" />
+        <input type="text" id="iceBlood" placeholder="Blood Group (e.g. O+, B+)" />
+        <input type="text" id="iceMed" placeholder="Allergy / Disease (e.g. Diabetes, Heart)" />
+        <input type="text" id="iceFam1" placeholder="Family Contact 1 (+91... / +90...)" />
+        <input type="text" id="iceFam2" placeholder="Family Contact 2 (Optional)" />
+        <button class="primary-btn" style="background:#991b1b;" onclick="saveIceProfile()">💾 Save Emergency Profile</button>
+      </div>
+    </details>
+
     <div id="sosPrimaryBtns" style="display:grid; gap:10px; margin-bottom:12px;"></div>
+    <button id="btnStopTrack" class="primary-btn hidden" style="background:#334155;margin-bottom:10px;" onclick="stopLiveTracking()">⏹️ Stop Live Location Tracking</button>
     <h4 style="margin:8px 0 4px; color:#7f1d1d;">🏥 Nearest Ambulance Providers & Hospitals (10km):</h4>
     <div id="sosProvidersList">Searching nearest emergency services...</div>
   </div>
@@ -834,20 +851,114 @@
   };
   detectGPS();
 
-  // ============ EMERGENCY AMBULANCE SOS ============
+  // ============ EMERGENCY FAMILY ICE + LIVE TRACKING SOS ============
+  let activeTrackId = null;
+  let trackWatchId = null;
+  let lastTrackPush = 0;
+
+  function getIceProfile() {
+    try { return JSON.parse(localStorage.getItem("miracle_ice") || "{}"); } catch { return {}; }
+  }
+
+  function renderIceBox() {
+    const p = getIceProfile();
+    document.getElementById("iceName").value = p.name || "";
+    document.getElementById("iceBlood").value = p.blood || "";
+    document.getElementById("iceMed").value = p.med || "";
+    document.getElementById("iceFam1").value = p.fam1 || "";
+    document.getElementById("iceFam2").value = p.fam2 || "";
+
+    const box = document.getElementById("iceCardDisplay");
+    if (!p.name && !p.fam1) {
+      box.innerHTML = "⚠️ <b>Emergency Info Not Saved Yet:</b> Neeche 'Edit Emergency Family' kholkar 1 baar apna Blood Group & Family Number save karein.";
+    } else {
+      box.innerHTML = `<b>🪪 ICE Card:</b> ${p.name || "Patient"} | <b>🩸 ${p.blood || "N/A"}</b><br/>${p.med ? `<b>⚠️ Note:</b> ${p.med}<br/>` : ""}<b>👨‍👩‍👧 Family:</b> ${p.fam1 || "-"} ${p.fam2 ? "/ " + p.fam2 : ""}`;
+    }
+  }
+
+  function saveIceProfile() {
+    const p = {
+      name: document.getElementById("iceName").value.trim(),
+      blood: document.getElementById("iceBlood").value.trim(),
+      med: document.getElementById("iceMed").value.trim(),
+      fam1: document.getElementById("iceFam1").value.trim(),
+      fam2: document.getElementById("iceFam2").value.trim(),
+    };
+    localStorage.setItem("miracle_ice", JSON.stringify(p));
+    renderIceBox();
+    loadAmbulanceSOS();
+    alert("✅ Emergency Family & Blood Group Info Saved!");
+  }
+
   async function openEmergencySOS() {
     showSection("sosSection");
+    renderIceBox();
     document.getElementById("sosProvidersList").innerHTML = "⏳ Live GPS & Nearest Ambulance search ho raha hai...";
 
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
         userLat = pos.coords.latitude;
         userLng = pos.coords.longitude;
+        await startLiveTracking();
         loadAmbulanceSOS();
-      }, () => loadAmbulanceSOS(), { timeout: 4000 });
+      }, async () => { await startLiveTracking(); loadAmbulanceSOS(); }, { timeout: 4000 });
     } else {
+      await startLiveTracking();
       loadAmbulanceSOS();
     }
+  }
+
+  async function startLiveTracking() {
+    const p = getIceProfile();
+    try {
+      const r = await fetch("/api/clinics/sos-track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          track_id: activeTrackId,
+          patient_name: p.name || "Patient",
+          blood_group: p.blood || "",
+          medical_note: p.med || "",
+          lat: userLat,
+          lng: userLng,
+          is_active: true,
+        }),
+      });
+      const d = await r.json();
+      activeTrackId = d.track_id;
+      document.getElementById("btnStopTrack").classList.remove("hidden");
+
+      if (navigator.geolocation && !trackWatchId) {
+        trackWatchId = navigator.geolocation.watchPosition((pos) => {
+          userLat = pos.coords.latitude;
+          userLng = pos.coords.longitude;
+          if (Date.now() - lastTrackPush > 8000 && activeTrackId) {
+            lastTrackPush = Date.now();
+            fetch("/api/clinics/sos-track", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ track_id: activeTrackId, lat: userLat, lng: userLng, is_active: true }),
+            }).catch(() => {});
+          }
+        }, () => {}, { enableHighAccuracy: true });
+      }
+    } catch (e) {}
+  }
+
+  async function stopLiveTracking() {
+    if (trackWatchId && navigator.geolocation) {
+      navigator.geolocation.clearWatch(trackWatchId);
+      trackWatchId = null;
+    }
+    if (activeTrackId) {
+      await fetch("/api/clinics/sos-track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: activeTrackId, lat: userLat, lng: userLng, is_active: false }),
+      }).catch(() => {});
+    }
+    document.getElementById("btnStopTrack").classList.add("hidden");
+    alert("Live SOS Tracking Stopped.");
   }
 
   async function loadAmbulanceSOS() {
@@ -867,14 +978,33 @@
       const d = await res.json();
       const ambNum = d.emergency_numbers?.ambulance || "112";
       const country = d.emergency_numbers?.country || "Emergency";
-      const sosMsg = encodeURIComponent(`🚨 EMERGENCY! Mujhe turant Ambulance / Medical help chahiye. Meri Live Location: ${mapsPin}`);
+      const ice = getIceProfile();
+      const liveUrl = activeTrackId ? `${window.location.origin}/track/${activeTrackId}` : mapsPin;
+      const sosMsg = encodeURIComponent(`🚨 EMERGENCY SOS! ${ice.name || "Patient"} ${ice.blood ? "(Blood: "+ice.blood+") " : ""}ko turant madad chahiye!\n📡 Live Tracking: ${liveUrl}\n📍 Map Pin: ${mapsPin}`);
+      const f1Digits = (ice.fam1 || "").replace(/[^0-9]/g, "");
+      const f2Digits = (ice.fam2 || "").replace(/[^0-9]/g, "");
+
+      let famHtml = "";
+      if (ice.fam1) {
+        famHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <a href="tel:${ice.fam1}" style="display:block;text-align:center;background:#0f172a;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">📞 Call Family 1</a>
+          <a href="https://wa.me/${f1Digits}?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#16a34a;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">📲 Alert Family 1 (Live GPS)</a>
+        </div>`;
+      }
+      if (ice.fam2) {
+        famHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <a href="tel:${ice.fam2}" style="display:block;text-align:center;background:#334155;color:#fff;padding:10px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">📞 Call Family 2</a>
+          <a href="https://wa.me/${f2Digits}?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#15803d;color:#fff;padding:10px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">📲 Alert Family 2</a>
+        </div>`;
+      }
 
       document.getElementById("sosPrimaryBtns").innerHTML = `
         <a href="tel:${ambNum}" style="display:block;text-align:center;background:#dc2626;color:#fff;padding:14px;border-radius:12px;font-size:17px;font-weight:800;text-decoration:none;">
           📞 CALL AMBULANCE NOW (${ambNum} • ${country})
         </a>
-        <a href="https://wa.me/?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#16a34a;color:#fff;padding:12px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;">
-          📲 Send My Live Location on WhatsApp (Family / Help)
+        ${famHtml}
+        <a href="https://wa.me/?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#0284c7;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">
+          📡 Share Live Tracking Link (${activeTrackId || "GPS"})
         </a>
       `;
 

@@ -460,3 +460,58 @@ async def get_location_welcome(lat: float = Query(...), lng: float = Query(...))
         "local_message": local_info["msg"] if local_info else "",
         "english_message": english_msg,
     }
+
+
+class SosTrackUpdate(BaseModel):
+    track_id: Optional[str] = None
+    patient_name: Optional[str] = "Patient"
+    blood_group: Optional[str] = ""
+    medical_note: Optional[str] = ""
+    lat: float
+    lng: float
+    is_active: bool = True
+
+
+@router.post("/sos-track")
+def upsert_sos_track(req: SosTrackUpdate, db: Session = Depends(get_db)):
+    from datetime import datetime
+    from app.models import SosTrack
+
+    tid = req.track_id or f"SOS-{uuid.uuid4().hex[:6].upper()}"
+    row = db.query(SosTrack).filter(SosTrack.track_id == tid).first()
+    if row:
+        row.lat = req.lat
+        row.lng = req.lng
+        row.is_active = req.is_active
+        row.updated_at = datetime.utcnow()
+    else:
+        row = SosTrack(
+            track_id=tid,
+            patient_name=(req.patient_name or "Patient")[:120],
+            blood_group=(req.blood_group or "")[:20],
+            medical_note=(req.medical_note or "")[:250],
+            lat=req.lat,
+            lng=req.lng,
+            is_active=req.is_active,
+        )
+        db.add(row)
+    db.commit()
+    return {"track_id": tid, "track_url": f"/track/{tid}"}
+
+
+@router.get("/sos-track/{track_id}")
+def get_sos_track(track_id: str, db: Session = Depends(get_db)):
+    from app.models import SosTrack
+    row = db.query(SosTrack).filter(SosTrack.track_id == track_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Tracking session not found")
+    return {
+        "track_id": row.track_id,
+        "patient_name": row.patient_name,
+        "blood_group": row.blood_group,
+        "medical_note": row.medical_note,
+        "lat": row.lat,
+        "lng": row.lng,
+        "is_active": row.is_active,
+        "updated_at": row.updated_at.strftime("%H:%M:%S UTC") if row.updated_at else "",
+    }
