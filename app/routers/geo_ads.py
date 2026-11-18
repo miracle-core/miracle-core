@@ -130,12 +130,17 @@ async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_d
 
     cc_key = (req.country_code or "IN").upper()
     default_pay = os.getenv("LOCAL_PAYMENT_INFO", "Configure LOCAL_PAYMENT_INFO in Render")
+    intl_missing = False
     if cc_key == "IN":
         payment_info = os.getenv("LOCAL_PAYMENT_IN", default_pay)
     elif cc_key == "TR":
-        payment_info = os.getenv("LOCAL_PAYMENT_TR", default_pay)
+        payment_info = os.getenv("LOCAL_PAYMENT_TR", "").strip()
+        if not payment_info:
+            intl_missing = True
     else:
-        payment_info = os.getenv("LOCAL_PAYMENT_GLOBAL", os.getenv("LOCAL_PAYMENT_TR", default_pay))
+        payment_info = (os.getenv("LOCAL_PAYMENT_GLOBAL") or os.getenv("LOCAL_PAYMENT_TR") or "").strip()
+        if not payment_info:
+            intl_missing = True
 
     await notify_owner(
         f"🆕 <b>New Clinic Ad Order Created!</b>\n"
@@ -159,7 +164,11 @@ async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_d
         "amount": amount,
         "plan_type": req.plan_type,
         "auto_renew": bool(req.auto_renew),
-        "payment_instructions": f"Base: {sym}{p_info['base_amount']} + Gateway Fee: {sym}{p_info['gateway_fee']} = Total {sym}{amount} ({p_info['currency']}). Pay to [{payment_info}] Ref: {order_code}. Hospital Admin Login -> Clinic ID: {clinic.id} | PIN: {h_pin}",
+        "payment_instructions": (
+            f"🌍 International Order ({sym}{amount} {p_info['currency']}) Received! Our team will send you a Card/Bank Payment Link on WhatsApp ({req.phone}) shortly. Hospital Admin -> Clinic ID: {clinic.id} | PIN: {h_pin}"
+            if intl_missing else
+            f"Base: {sym}{p_info['base_amount']} + Gateway Fee: {sym}{p_info['gateway_fee']} = Total {sym}{amount} ({p_info['currency']}). Pay to [{payment_info}] Ref: {order_code}. Hospital Admin -> Clinic ID: {clinic.id} | PIN: {h_pin}"
+        ),
     }
 
 
