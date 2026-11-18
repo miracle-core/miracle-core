@@ -85,3 +85,22 @@ class CampBooking(Base):
     patient_name = Column(String(120), nullable=False)
     patient_phone = Column(String(40), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    key = Column(String(80), primary_key=True, index=True)
+    value = Column(String(200), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UsageMetric(Base):
+    __tablename__ = "usage_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feature = Column(String(80), nullable=False)  # jarvis_ask | scan_report | nearby_ads | register_ad
+    department = Column(String(100), nullable=True)
+    status_code = Column(Integer, default=200)
+    latency_ms = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)

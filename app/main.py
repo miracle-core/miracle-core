@@ -13,6 +13,7 @@ from app.database import Base, engine, get_db
 from app import models  # noqa: F401
 from app.telegram_bot import handle_telegram_update, notify_owner
 from app.watchdog import run_watchdog, send_daily_report
+from app.strategist_agent import run_strategist_analysis
 from app.routers.jarvis_ai import router as jarvis_router
 from app.routers.geo_ads import router as geo_ads_router
 from app.routers.sales_agent import router as sales_router, run_ai_outreach_batch
@@ -27,7 +28,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MIRACLE Health AI Core", version="1.3.0", lifespan=lifespan)
+app = FastAPI(title="MIRACLE Health AI Core", version="1.4.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -71,6 +72,13 @@ async def cron_daily_report(secret: str, db: Session = Depends(get_db)):
     return await send_daily_report(db)
 
 
+@app.get("/api/cron/strategist")
+async def cron_strategist(secret: str, db: Session = Depends(get_db)):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return await run_strategist_analysis(db, notify_owner)
+
+
 @app.get("/api/cron/outreach")
 async def cron_outreach(secret: str, limit: int = 5, db: Session = Depends(get_db)):
     if secret != CRON_SECRET:
@@ -101,5 +109,5 @@ async def setup_webhook(app_url: str, secret: str):
             f"https://api.telegram.org/bot{bot_token}/setWebhook",
             json={"url": webhook_url, "secret_token": WEBHOOK_SECRET},
         )
-    await notify_owner("🚀 <b>MIRACLE Server, Watchdog & Telegram Connected!</b>")
+    await notify_owner("🚀 <b>MIRACLE Server, Watchdog & Strategist Connected!</b>")
     return res.json()
