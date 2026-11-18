@@ -250,14 +250,17 @@
     <div id="callTimer" style="font-size:16px; color:#86efac;">Connecting...</div>
   </div>
 
-  <div>
+  <div style="width:100%;max-width:440px;">
     <div class="call-avatar" id="callAvatar"><img src="/logo.svg" style="width:88px;height:88px;border-radius:50%;" /></div>
-    <div id="callStatusText" style="font-size:16px; font-weight:700; margin-bottom:10px;">Shuru ho raha hai...</div>
-    <div class="call-transcript" id="callTranscript">Aap apni takleef seedhe bol sakte hain...</div>
+    <div id="callStatusText" style="font-size:16px; font-weight:700; margin-bottom:6px;">Shuru ho raha hai...</div>
+    <div style="width:180px;height:6px;background:rgba(255,255,255,0.2);border-radius:6px;margin:0 auto 10px;overflow:hidden;">
+      <div id="micMeter" style="width:5%;height:100%;background:#4ade80;transition:width 0.08s;"></div>
+    </div>
+    <div class="call-transcript" id="callTranscript">Aap apni takleef kisi bhi bhasha mein bol sakte hain...</div>
   </div>
 
   <div class="call-controls">
-    <button class="call-circle call-mute" id="btnReplayListen" onclick="manualRestartMic()" title="Mic Retry">🎤</button>
+    <button class="call-circle call-mute" id="btnSendNow" onclick="finishRecordingNow()" title="Send Voice Now" style="background:#16a34a;font-size:20px;width:auto;padding:0 18px;border-radius:30px;">✅ Bol Diya</button>
     <button class="call-circle call-end" onclick="endVoiceCall()" title="End Call">📵</button>
     <button class="call-circle call-mute" id="btnMuteVoice" onclick="toggleSpeaker()" title="Speaker On/Off">🔊</button>
   </div>
@@ -325,7 +328,7 @@
     }
   }
 
-  function speakText(text, onDone = null) {
+  function speakText(text, onDone = null) { speakTextFallback(text, getSpeechLang(), onDone); } function _unusedSpeak(text, onDone = null) {
     if (!("speechSynthesis" in window) || !speakerOn) {
       if (onDone) onDone();
       return;
@@ -339,9 +342,42 @@
     window.speechSynthesis.speak(utter);
   }
 
-  // ============ PHONE CALL VOICE MODE ============
-  function startVoiceCall() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // ============ PHONE CALL STUDIO AUDIO MODE ============
+  let mediaStream = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let audioCtx = null;
+  let silenceMonitorId = null;
+  const callAudioPlayer = new Audio();
+
+  function playServerOrFallbackAudio(audioBase64, textFallback, langHint, onDone) {
+    if (!speakerOn) { if (onDone) onDone(); return; }
+    if (audioBase64) {
+      callAudioPlayer.pause();
+      callAudioPlayer.src = "data:audio/mp3;base64," + audioBase64;
+      callAudioPlayer.onended = () => { if (onDone) onDone(); };
+      callAudioPlayer.onerror = () => speakTextFallback(textFallback, langHint, onDone);
+      callAudioPlayer.play().catch(() => speakTextFallback(textFallback, langHint, onDone));
+    } else {
+      speakTextFallback(textFallback, langHint, onDone);
+    }
+  }
+
+  function speakTextFallback(text, langHint, onDone) {
+    if (!("speechSynthesis" in window) || !speakerOn || !text) {
+      if (onDone) onDone();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = langHint || getSpeechLang();
+    u.rate = 0.96;
+    u.onend = () => { if (onDone) onDone(); };
+    u.onerror = () => { if (onDone) onDone(); };
+    window.speechSynthesis.speak(u);
+  }
+
+  async function startVoiceCall() {
     callActive = true;
     callSeconds = 0;
     callHistory = [];
@@ -354,127 +390,163 @@
       document.getElementById("callTimer").innerText = `${m}:${s}`;
     }, 1000);
 
-    if (!SR) {
-      document.getElementById("callStatusText").innerText = "Browser Voice Mic Unsupported";
-      document.getElementById("callTranscript").innerText = "Kripya Google Chrome Android use karein ya home screen par likh kar poochhein.";
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+    } catch (e) {
+      document.getElementById("callStatusText").innerText = "❌ Mic Permission Allow Karein";
+      document.getElementById("callTranscript").innerText = "Browser settings mein Microphone allow karein.";
       return;
     }
+
+    // Unlock audio element on user tap
+    callAudioPlayer.src = "";
 
     const lang = document.getElementById("langSelect").value;
     const greet = lang.includes("tr-TR")
       ? "Merhaba, ben MIRACLE Jarvis. Şikayetinizi anlatabilirsiniz, sizi dinliyorum."
       : lang.includes("gu-IN")
       ? "નમસ્તે, હું મિરેકલ જાર્વિસ છું. તમારી તકલીફ જણાવો, હું સાંભળી રહ્યો છું."
-      : lang.includes("ar-SA")
-      ? "مرحباً، أنا ميراكل جارفيس. تفضل بإخباري بما تشعر به."
-      : (lang === "hinglish" || lang.includes("hi-IN") || lang.includes("mr-IN") || lang.includes("ur-PK"))
-      ? "Namaste, main MIRACLE Jarvis hoon. Aap apni takleef bataiye, main sun raha hoon."
-      : "Hello, I am MIRACLE Jarvis. Please speak in your language, I am listening.";
+      : lang.includes("en-")
+      ? "Hello, I am MIRACLE Jarvis. Speak naturally in any language, I am listening."
+      : "Namaste, main MIRACLE Jarvis hoon. Aap kisi bhi bhasha mein apni takleef boliye, main sun raha hoon.";
 
     document.getElementById("callStatusText").innerText = "🗣️ Jarvis Bol Raha Hai...";
     document.getElementById("callTranscript").innerHTML = `<b>Jarvis:</b> ${greet}`;
-    speakText(greet, () => {
-      if (callActive) listenOnce();
+    speakTextFallback(greet, getSpeechLang(), () => {
+      if (callActive) recordVoiceTurn();
     });
   }
 
-  function listenOnce() {
-    if (!callActive) return;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    try { if (recognition) recognition.abort(); } catch(e) {}
+  function recordVoiceTurn() {
+    if (!callActive || !mediaStream) return;
+    audioChunks = [];
 
-    recognition = new SR();
-    recognition.lang = getSpeechLang();
-    recognition.interimResults = true;
-    recognition.continuous = false;
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "audio/mp4";
 
-    let finalText = "";
-    document.getElementById("callStatusText").innerText = "🎤 Sun Raha Hoon... Boliye";
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += t + " ";
-        else interim += t;
-      }
-      document.getElementById("callTranscript").innerHTML = `<b>Aap:</b> ${finalText || interim}`;
+    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: mime });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      if (silenceMonitorId) cancelAnimationFrame(silenceMonitorId);
+      document.getElementById("micMeter").style.width = "5%";
+      if (!callActive) return;
+      const blob = new Blob(audioChunks, { type: mime });
+      await sendAudioTurn(blob, mime);
     };
 
-    recognition.onend = async () => {
-      if (!callActive) return;
-      const spoken = finalText.trim();
-      if (!spoken) {
-        document.getElementById("callStatusText").innerText = "🎤 Kuch sunai nahi diya, phir boliye...";
-        setTimeout(() => { if (callActive) listenOnce(); }, 700);
+    mediaRecorder.start(250);
+    document.getElementById("callStatusText").innerText = "🎤 Sun Raha Hoon... Saaf Boliye (Ya 'Bol Diya' Dabayein)";
+
+    // Live Mic Volume Meter + Auto-Silence Detection (1.7 sec pause after speech)
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.createMediaStreamSource(mediaStream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const dataArr = new Uint8Array(analyser.frequencyBinCount);
+      let heardSpeech = false;
+      let silenceStart = Date.now();
+      const recStartedAt = Date.now();
+
+      function checkAudio() {
+        if (!callActive || !mediaRecorder || mediaRecorder.state !== "recording") return;
+        analyser.getByteTimeDomainData(dataArr);
+        let peak = 0;
+        for (let i = 0; i < dataArr.length; i++) {
+          const v = Math.abs(dataArr[i] - 128);
+          if (v > peak) peak = v;
+        }
+        document.getElementById("micMeter").style.width = Math.min(100, peak * 3) + "%";
+
+        if (peak > 12) {
+          heardSpeech = true;
+          silenceStart = Date.now();
+        } else if (heardSpeech && Date.now() - silenceStart > 1700) {
+          finishRecordingNow();
+          return;
+        } else if (!heardSpeech && Date.now() - recStartedAt > 12000) {
+          finishRecordingNow();
+          return;
+        }
+        silenceMonitorId = requestAnimationFrame(checkAudio);
+      }
+      checkAudio();
+    } catch (e) {}
+  }
+
+  function finishRecordingNow() {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  }
+
+  async function sendAudioTurn(blob, mime) {
+    document.getElementById("callStatusText").innerText = "⏳ Jarvis Sun Kar Samajh Raha Hai...";
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "voice.webm");
+      fd.append("history", callHistory.slice(-4).join(" || "));
+      fd.append("preferred_lang", document.getElementById("langSelect").value);
+      fd.append("lat", userLat);
+      fd.append("lng", userLng);
+
+      const res = await fetch("/api/jarvis/voice-turn", { method: "POST", body: fd });
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errMsg = data.detail || "Voice AI Error";
+        document.getElementById("callStatusText").innerText = "⚠️ Error";
+        document.getElementById("callTranscript").innerHTML = `<b>Error:</b> ${errMsg}`;
+        setTimeout(() => { if (callActive) recordVoiceTurn(); }, 1800);
         return;
       }
-      await processVoiceTurn(spoken);
-    };
 
-    recognition.onerror = (e) => {
-      if (!callActive) return;
-      if (e.error === "not-allowed") {
-        document.getElementById("callStatusText").innerText = "❌ Mic Permission Allow Karein";
-      } else {
-        setTimeout(() => { if (callActive) listenOnce(); }, 900);
-      }
-    };
-
-    recognition.start();
-  }
-
-  function manualRestartMic() {
-    window.speechSynthesis.cancel();
-    listenOnce();
-  }
-
-  async function processVoiceTurn(spokenText) {
-    document.getElementById("callStatusText").innerText = "⏳ Jarvis Soch Raha Hai...";
-    try {
-      const res = await fetch("/api/jarvis/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symptoms: spokenText,
-          history: callHistory.slice(-3).join(" | "),
-          language: document.getElementById("langSelect").value,
-          lat: userLat,
-          lng: userLng,
-        }),
-      });
-      const data = await res.json();
       renderResult(data);
       const g = data.ai_guidance || {};
-      let reply = g.emergency_flag
-        ? `Emergency Alert! ${g.emergency_message}. ${g.simple_summary}`
-        : `${g.simple_summary || ""} Aapko ${g.detected_department || "Doctor"} se milna chahiye.`;
+      const userSaid = g.user_transcript || "(Voice)";
+      const reply = g.emergency_flag
+        ? `Emergency Alert! ${g.emergency_message}. ${g.voice_reply || g.simple_summary}`
+        : (g.voice_reply || g.simple_summary || "Kripya phir se bolein.");
 
-      callHistory.push(`Patient: ${spokenText} -> Jarvis: ${g.detected_department}`);
+      if (g.user_transcript) {
+        callHistory.push(`Patient: ${userSaid} -> Jarvis (${g.detected_department}, lang:${g.detected_lang}): ${reply}`);
+      }
+
       document.getElementById("callTranscript").innerHTML =
-        `<b>Aap:</b> ${spokenText}<br/><br/><b>Jarvis (${g.detected_department || "Care"}):</b> ${reply}`;
+        `<b>Aap (${g.detected_lang || 'auto'}):</b> ${userSaid}<br/><br/><b>Jarvis (${g.detected_department || 'Care'}):</b> ${reply}`;
       document.getElementById("callStatusText").innerText = "🗣️ Jarvis Jawab De Raha Hai...";
 
-      speakText(reply, () => {
-        if (callActive) listenOnce();
+      playServerOrFallbackAudio(data.audio_base64, reply, g.detected_lang, () => {
+        if (callActive) recordVoiceTurn();
       });
     } catch (err) {
       document.getElementById("callStatusText").innerText = "⚠️ Network issue, phir bolein...";
-      setTimeout(() => { if (callActive) listenOnce(); }, 1200);
+      setTimeout(() => { if (callActive) recordVoiceTurn(); }, 1200);
     }
   }
 
   function toggleSpeaker() {
     speakerOn = !speakerOn;
     document.getElementById("btnMuteVoice").innerText = speakerOn ? "🔊" : "🔇";
-    if (!speakerOn) window.speechSynthesis.cancel();
+    if (!speakerOn) {
+      callAudioPlayer.pause();
+      window.speechSynthesis.cancel();
+    }
   }
 
   function endVoiceCall() {
     callActive = false;
     clearInterval(timerInterval);
-    try { if (recognition) recognition.abort(); } catch(e) {}
+    if (silenceMonitorId) cancelAnimationFrame(silenceMonitorId);
+    try { if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop(); } catch(e) {}
+    try { if (mediaStream) mediaStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+    callAudioPlayer.pause();
     window.speechSynthesis.cancel();
     document.getElementById("callOverlay").classList.add("hidden");
   }
@@ -496,7 +568,7 @@
     });
     const data = await res.json();
     renderResult(data);
-    if (data.ai_guidance?.simple_summary) speakText(data.ai_guidance.simple_summary);
+    playServerOrFallbackAudio(data.audio_base64, data.ai_guidance?.voice_reply || data.ai_guidance?.simple_summary, data.ai_guidance?.detected_lang);
   }
 
   async function scanReport() {
@@ -513,7 +585,7 @@
     const res = await fetch("/api/jarvis/scan-report", { method: "POST", body: fd });
     const data = await res.json();
     renderResult(data);
-    if (data.ai_guidance?.simple_summary) speakText(data.ai_guidance.simple_summary);
+    playServerOrFallbackAudio(data.audio_base64, data.ai_guidance?.voice_reply || data.ai_guidance?.simple_summary, data.ai_guidance?.detected_lang);
   }
 
   function showLoadingResult() {
