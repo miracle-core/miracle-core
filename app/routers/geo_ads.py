@@ -569,6 +569,23 @@ async def dispatch_direct_sos(req: SosDispatchRequest):
     if req.fam_phone and await send_whatsapp_cloud(req.fam_phone.strip(), msg_plain):
         sent_channels.append("Auto WhatsApp API")
 
+    # 4. Direct Server SMS (Fast2SMS India - Auto-active when FAST2SMS_API_KEY added)
+    f2s_key = os.getenv("FAST2SMS_API_KEY", "").strip()
+    if f2s_key and req.fam_phone:
+        digits = "".join(c for c in req.fam_phone if c.isdigit())[-10:]
+        if len(digits) == 10:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    r = await client.post(
+                        "https://www.fast2sms.com/dev/bulkV2",
+                        headers={"authorization": f2s_key},
+                        json={"route": "q", "message": msg_plain[:155], "numbers": digits},
+                    )
+                if r.status_code == 200:
+                    sent_channels.append("Direct SMS")
+            except Exception:
+                pass
+
     # 4. Always notify Owner Telegram log
     await notify_owner(msg_html + f"\n✅ <i>Server Dispatched: {', '.join(sent_channels) or 'Backup Link Ready'}</i>")
 
