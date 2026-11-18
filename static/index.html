@@ -122,6 +122,7 @@
   </div>
   <select id="langSelect" class="lang-pick" onchange="updateLabels()">
     <option value="English (en-US)" selected>🌍 English (Default)</option>
+    <option value="English (en-US)" selected>🌍 English (Default)</option>
     <option value="hinglish">🇮🇳 Hinglish / हिन्दी</option>
     <option value="Hindi (hi-IN)">🇮🇳 शुद्ध हिन्दी</option>
     <option value="Gujarati (gu-IN)">🇮🇳 ગુજરાતી (Gujarati)</option>
@@ -408,14 +409,12 @@
     try {
       const gRes = await fetch(`/api/jarvis/greet?lang=${encodeURIComponent(lang)}`);
       const gData = await gRes.json();
-      const greet = gData.text || "Hello, I am MIRACLE Ali Vepa AI. Please tell me how you are feeling.";
+      const greet = gData.text || "Hello, I am Ali Vepa AI from Miracle. How can I help you today?";
       document.getElementById("callStatusText").innerText = "🗣️ Ali Vepa AI Speaking...";
       document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
-      playServerOrFallbackAudio(gData.audio_base64, greet, gData.lang || "en", () => {
-        if (callActive) recordVoiceTurn();
-      });
+      playServerOrFallbackAudio(gData.audio_base64, greet, gData.lang || "en", () => { if (callActive) recordVoiceTurn(); });
     } catch (e) {
-      const greet = "Hello, I am MIRACLE Ali Vepa AI. Please tell me how you are feeling.";
+      const greet = "Hello, I am Ali Vepa AI from Miracle. How can I help you today?";
       document.getElementById("callTranscript").innerHTML = `<b>Ali Vepa AI:</b> ${greet}`;
       speakTextFallback(greet, "en-US", () => { if (callActive) recordVoiceTurn(); });
     }
