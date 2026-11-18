@@ -330,3 +330,133 @@ async def log_sos_alert(req: SosLogRequest):
         f"📝 Note: {req.note}"
     )
     return {"status": "logged", "maps_url": maps_url}
+
+
+LOCAL_WELCOME_MESSAGES = {
+    "gu": {
+        "lang_name": "ગુજરાતી",
+        "msg": "MIRACLE ૧૦૦% દર્દી-આધારિત અને બિલકુલ મફત સેવા છે. કૃપા કરીને આ લિંક તમારા પ્રિયજનો અને પરિવાર સાથે શેર કરો જેથી કોઈપણ વ્યક્તિને આરોગ્યની સમસ્યામાં તરત સાચી મદદ મળી શકે."
+    },
+    "mr": {
+        "lang_name": "मराठी",
+        "msg": "MIRACLE ही १००% रुग्णांसाठी मोफत सेवा आहे. कृपया ही लिंक तुमच्या जवळच्या लोकांना आणि कुटुंबाला पाठवा, जेणेकरून कोणालाही आरोग्यासंबंधी मदतीची गरज भासल्यास त्वरित आधार मिळेल."
+    },
+    "hi": {
+        "lang_name": "हिन्दी",
+        "msg": "MIRACLE 100% मरीज-आधारित और बिल्कुल मुफ्त सेवा है। कृपया इसे अपने करीबी दोस्तों और परिवार को भेजकर मदद करें, ताकि किसी भी इंसान को स्वास्थ्य संबंधी सवाल में तुरंत सही सहायता मिल सके।"
+    },
+    "bn": {
+        "lang_name": "বাংলা",
+        "msg": "MIRACLE ১০০% রোগী-ভিত্তিক এবং সম্পূর্ণ বিনামূল্যে সেবা। অনুগ্রহ করে এটি আপনার প্রিয়জন ও পরিবারের সাথে শেয়ার করুন যাতে যে কেউ স্বাস্থ্য সংক্রান্ত সমস্যায় দ্রুত সঠিক সহায়তা পান।"
+    },
+    "ta": {
+        "lang_name": "தமிழ்",
+        "msg": "MIRACLE 100% நோயாளிகளுக்கான முற்றிலும் இலவச சேவையாகும். தயவுசெய்து இதை உங்கள் அன்புக்குரியவர்களுடன் பகிருங்கள், இதனால் மருத்துவ உதவியில் உடனடி வழிகாட்டுதல் கிடைக்கும்."
+    },
+    "te": {
+        "lang_name": "తెలుగు",
+        "msg": "MIRACLE 100% రోగుల కోసం పూర్తిగా ఉచిత సేవ. దయచేసి దీన్ని మీ ఆత్మీయులు మరియు కుటుంబ సభ్యులతో పంచుకోండి, తద్వారా ఆరోగ్య సమస్యల్లో వెంటనే సరైన సహాయం లభిస్తుంది."
+    },
+    "tr": {
+        "lang_name": "Türkçe",
+        "msg": "MIRACLE %100 hasta odaklı ve tamamen ÜCRETSİZ bir sağlık rehberidir. Sağlıkla ilgili sorularda herkesin anında doğru destek alabilmesi için lütfen sevdiklerinizle paylaşın."
+    },
+    "ar": {
+        "lang_name": "العربية",
+        "msg": "MIRACLE هي خدمة مجانية ١٠٠٪ مخصصة للمرضى. يرجى مشاركتها مع أحبائك وعائلتك حتى يحصل أي شخص على دعم فوري وصادق في أي استفسار صحي."
+    },
+    "es": {
+        "lang_name": "Español",
+        "msg": "MIRACLE es un servicio 100% gratuito enfocado en el paciente. Compártelo con tus seres queridos para que cualquier persona reciba apoyo inmediato en temas de salud."
+    },
+    "fr": {
+        "lang_name": "Français",
+        "msg": "MIRACLE est un service 100% gratuit dédié aux patients. Partagez-le avec vos proches afin que chacun puisse obtenir un soutien immédiat pour sa santé."
+    },
+    "de": {
+        "lang_name": "Deutsch",
+        "msg": "MIRACLE ist ein 100% kostenloser, patientenorientierter Dienst. Teilen Sie ihn mit Ihren Liebsten, damit jeder bei Gesundheitsfragen sofortige Hilfe erhält."
+    },
+    "ru": {
+        "lang_name": "Русский",
+        "msg": "MIRACLE — это на 100% бесплатный сервис для пациентов. Поделитесь им с близкими, чтобы каждый мог сразу получить честную поддержку по вопросам здоровья."
+    },
+    "id": {
+        "lang_name": "Bahasa Indonesia",
+        "msg": "MIRACLE adalah layanan 100% GRATIS yang berfokus pada pasien. Bagikan kepada orang terdekat Anda agar siapa pun bisa segera mendapat dukungan kesehatan yang jujur."
+    },
+    "pt": {
+        "lang_name": "Português",
+        "msg": "MIRACLE é um serviço 100% gratuito focado no paciente. Compartilhe com seus familiares e amigos para que todos tenham apoio imediato em dúvidas de saúde."
+    },
+}
+
+
+@router.get("/location-welcome")
+async def get_location_welcome(lat: float = Query(...), lng: float = Query(...)):
+    place_label = "Global"
+    lang_code = "en"
+    country_code = ""
+    state = ""
+
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            res = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"lat": lat, "lon": lng, "format": "json", "accept-language": "en"},
+                headers={"User-Agent": "MiracleHealthApp/1.0"},
+            )
+        if res.status_code == 200:
+            addr = res.json().get("address", {})
+            country_code = (addr.get("country_code") or "").lower()
+            state = (addr.get("state") or "").lower()
+            city = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("state") or ""
+            country = addr.get("country") or ""
+            place_label = ", ".join([x for x in [city, addr.get("state"), country] if x]) or "Your Location"
+    except Exception:
+        pass
+
+    # Determine regional language
+    if country_code == "in" or (6.0 <= lat <= 37.5 and 68.0 <= lng <= 97.5 and not country_code):
+        if "gujarat" in state or (20.1 <= lat <= 24.7 and 68.1 <= lng <= 74.5 and not state):
+            lang_code = "gu"
+        elif "maharashtra" in state:
+            lang_code = "mr"
+        elif "west bengal" in state:
+            lang_code = "bn"
+        elif "tamil nadu" in state:
+            lang_code = "ta"
+        elif "telangana" in state or "andhra" in state:
+            lang_code = "te"
+        else:
+            lang_code = "hi"
+    elif country_code == "tr" or (35.8 <= lat <= 42.3 and 25.5 <= lng <= 45.0 and not country_code):
+        lang_code = "tr"
+    elif country_code in {"ae", "sa", "qa", "kw", "om", "bh", "eg", "jo", "iq"}:
+        lang_code = "ar"
+    elif country_code in {"es", "mx", "ar", "co", "cl", "pe"}:
+        lang_code = "es"
+    elif country_code in {"fr", "be"}:
+        lang_code = "fr"
+    elif country_code in {"de", "at", "ch"}:
+        lang_code = "de"
+    elif country_code in {"ru", "by", "kz"}:
+        lang_code = "ru"
+    elif country_code == "id":
+        lang_code = "id"
+    elif country_code in {"br", "pt"}:
+        lang_code = "pt"
+
+    local_info = LOCAL_WELCOME_MESSAGES.get(lang_code)
+    english_msg = (
+        "MIRACLE is 100% patient-based and completely FREE. "
+        "Please share this with your dear & near ones so anyone facing a health query receives immediate, honest support."
+    )
+
+    return {
+        "place": place_label,
+        "local_lang_code": lang_code,
+        "local_lang_name": local_info["lang_name"] if local_info else "English",
+        "local_message": local_info["msg"] if local_info else "",
+        "english_message": english_msg,
+    }

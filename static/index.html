@@ -287,9 +287,10 @@
     <img src="/logo.svg" alt="MIRACLE" style="width:68px;height:68px;border-radius:16px;margin-bottom:8px;" />
     <h2 style="margin:6px 0;color:#064e3b;font-size:20px;">Welcome to MIRACLE</h2>
     <div id="welcomeLocBadge" style="font-size:12px;background:#ecfdf5;color:#0b6e4f;padding:6px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;font-weight:700;">📍 Detecting your location...</div>
-    <p style="font-size:14px;line-height:1.55;color:#1e293b;margin:0 0 14px;">
-      <b>MIRACLE</b> ek <b>100% Patient-Based aur Bilkul FREE</b> seva hai.<br/><br/>
-      Kripya ise apne <b>kareebi doston aur parivar (Dear & Near Ones)</b> ko zaroor bhejein, taaki kisi bhi insaan ko health ya medical report ki zaroorat par <b>turant sachai aur sahi madad</b> mil sake!
+    <div id="welcomeLocalBox" style="font-size:14px;line-height:1.55;color:#064e3b;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:10px;display:none;"></div>
+    <p id="welcomeEngBox" style="font-size:13.5px;line-height:1.5;color:#1e293b;margin:0 0 14px;">
+      <b>MIRACLE</b> is <b>100% patient-based and completely FREE</b>.<br/>
+      Please share this with your <b>dear & near ones</b> so anyone facing a health query receives immediate, honest support.
     </p>
     <button onclick="shareMiracle()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">
       📲 Share With Dear & Near Ones (WhatsApp)
@@ -812,6 +813,16 @@
         document.getElementById("gpsStatus").innerText = `📍 Live GPS Ready (${userLat.toFixed(3)}, ${userLng.toFixed(3)})`;
         const wb = document.getElementById("welcomeLocBadge");
         if (wb) wb.innerText = `📍 Location Connected (${userLat.toFixed(2)}, ${userLng.toFixed(2)})`;
+        fetch(`/api/clinics/location-welcome?lat=${userLat}&lng=${userLng}`)
+          .then(r => r.json())
+          .then(w => {
+            if (wb && w.place) wb.innerText = `📍 ${w.place}`;
+            const lbox = document.getElementById("welcomeLocalBox");
+            if (lbox && w.local_message) {
+              lbox.style.display = "block";
+              lbox.innerHTML = `<b>${w.local_lang_name}:</b><br/>${w.local_message}`;
+            }
+          }).catch(() => {});
       },
       () => {
         document.getElementById("gpsStatus").innerText = "📍 Tap Refresh to Allow GPS";
