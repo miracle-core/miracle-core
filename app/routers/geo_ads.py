@@ -33,7 +33,9 @@ class RegisterAdRequest(BaseModel):
     address: str
     lat: float
     lng: float
-    plan_type: str  # camp_1500 | weekly_3500 | monthly_7500
+    plan_type: str  # starter_299 | camp_1500 | weekly_3500 | monthly_7500
+    country_code: Optional[str] = "IN"
+    auto_renew: Optional[bool] = True
     camp_title: Optional[str] = None
 
 
@@ -75,10 +77,12 @@ async def extract_payment_details_with_ai(image_bytes: bytes, mime_type: str) ->
 
 @router.post("/register-ad")
 async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_db)):
-    if req.plan_type not in PLAN_PRICES:
-        raise HTTPException(status_code=400, detail="Invalid plan_type. Use: camp_1500, weekly_3500, monthly_7500")
-
-    amount = PLAN_PRICES[req.plan_type]
+    from app.pricing import calculate_plan_price
+    try:
+        p_info = calculate_plan_price(req.plan_type, req.country_code or "IN", include_gateway_fee=True)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan_type")
+    amount = p_info["total_amount"]
 
     clinic = ClinicDoctor(
         name=req.name,
@@ -96,10 +100,17 @@ async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_d
     db.add(clinic)
     db.flush()
 
+    h_pin = uuid.uuid4().hex[:6].upper()
     campaign = AdCampaign(
         clinic_id=clinic.id,
         plan_type=req.plan_type,
-        amount=amount,
+        amount=p_info["base_amount"],
+        currency=p_info["currency"],
+        country_code=p_info["country_code"],
+        gateway_fee=p_info["gateway_fee"],
+        total_amount=amount,
+        auto_renew=bool(req.auto_renew),
+        hospital_pin=h_pin,
         radius_km=10,
         camp_title=req.camp_title,
         status="pending",
@@ -131,12 +142,20 @@ async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_d
         f"⏳ Waiting for payment screenshot..."
     )
 
+    sym = p_info["symbol"]
     return {
         "status": "pending_payment",
+        "clinic_id": clinic.id,
+        "hospital_pin": h_pin,
         "order_code": order_code,
+        "currency": p_info["currency"],
+        "symbol": sym,
+        "base_amount": p_info["base_amount"],
+        "gateway_fee": p_info["gateway_fee"],
         "amount": amount,
         "plan_type": req.plan_type,
-        "payment_instructions": f"Pay ₹{amount} to [{payment_info}] with reference {order_code}, then upload screenshot at /api/clinics/upload-payment-proof.",
+        "auto_renew": bool(req.auto_renew),
+        "payment_instructions": f"Base: {sym}{p_info['base_amount']} + Gateway Fee: {sym}{p_info['gateway_fee']} = Total {sym}{amount} ({p_info['currency']}). Pay to [{payment_info}] Ref: {order_code}. Hospital Admin Login -> Clinic ID: {clinic.id} | PIN: {h_pin}",
     }
 
 
@@ -631,3 +650,79 @@ async def create_family_invite(req: FamilyInviteRequest, db: Session = Depends(g
         FamilyLink.family_code == fcode, FamilyLink.relative_tg_id != "SEED"
     ).count()
     return {"family_code": fcode, "invite_link": tg_link, "connected_relatives": connected_count}
+
+
+@router.get("/pricing")
+def get_country_pricing(country_code: str = "IN"):
+    from app.pricing import calculate_plan_price, INDIA_BASE_INR
+    return {"country_code": country_code.upper(), "plans": [calculate_plan_price(k, country_code, True) for k in INDIA_BASE_INR]}
+
+
+class HospitalUpdateReq(BaseModel):
+    clinic_id: int
+    pin: str
+    special_update: Optional[str] = None
+    auto_renew: Optional[bool] = None
+
+
+@router.get("/hospital-portal/{clinic_id}")
+def hospital_portal_view(clinic_id: int, pin: str, db: Session = Depends(get_db)):
+    camp = db.query(AdCampaign).filter(AdCampaign.clinic_id == clinic_id, AdCampaign.hospital_pin == pin.strip().upper()).order_by(AdCampaign.id.desc()).first()
+    if not camp:
+        raise HTTPException(status_code=403, detail="Invalid Clinic ID or PIN")
+    clinic = db.query(ClinicDoctor).filter(ClinicDoctor.id == clinic_id).first()
+    bookings = db.query(CampBooking).filter(CampBooking.campaign_id == camp.id).count()
+    return {
+        "clinic_name": clinic.name if clinic else "",
+        "plan_type": camp.plan_type,
+        "status": camp.status,
+        "auto_renew": camp.auto_renew,
+        "currency": camp.currency,
+        "total_amount": camp.total_amount or camp.amount,
+        "end_date": camp.end_date.strftime("%d-%b-%Y") if camp.end_date else "Pending",
+        "special_update": camp.special_update or "",
+        "camp_bookings_count": bookings,
+        "next_renewal_note": "Next week shifts to standard ₹3,500/wk (2x outside India) unless cancelled." if camp.plan_type == "starter_299" else "Autopay active — cancel anytime.",
+    }
+
+
+@router.post("/hospital-portal/update")
+async def hospital_portal_update(req: HospitalUpdateReq, db: Session = Depends(get_db)):
+    camp = db.query(AdCampaign).filter(AdCampaign.clinic_id == req.clinic_id, AdCampaign.hospital_pin == req.pin.strip().upper()).order_by(AdCampaign.id.desc()).first()
+    if not camp:
+        raise HTTPException(status_code=403, detail="Invalid Clinic ID or PIN")
+    if req.auto_renew is not None:
+        camp.auto_renew = req.auto_renew
+    if req.special_update is not None:
+        camp.special_update = req.special_update[:500]
+    db.commit()
+    await notify_owner(f"🏥 <b>Hospital Admin Update (#{req.clinic_id}):</b> Autopay={'ON' if camp.auto_renew else 'OFF (Cancelled)'} | Update: {camp.special_update or 'None'}")
+    return {"status": "updated", "auto_renew": camp.auto_renew, "special_update": camp.special_update}
+
+
+async def run_hospital_monthly_checkin(db: Session):
+    from urllib.parse import quote
+    from app.routers.sales_agent import send_smtp_email, send_whatsapp_cloud
+    actives = db.query(AdCampaign).filter(AdCampaign.status == "active").all()
+    links = []
+    for camp in actives:
+        c = db.query(ClinicDoctor).filter(ClinicDoctor.id == camp.clinic_id).first()
+        if not c:
+            continue
+        msg = (
+            f"Namaste {c.name}! MIRACLE Monthly Check-In: Is mahine aap apne 10km ke patients ko kuch naya dikhana chahte hain? "
+            f"(Naya Health Camp, Special Service, ya Patient Video Testimonial?) Clinic ID {c.id} & PIN {camp.hospital_pin} se turant update karein!"
+        )
+        if c.email:
+            send_smtp_email(c.email, f"MIRACLE Monthly Check-In for {c.name}", msg)
+        if c.phone:
+            ok = await send_whatsapp_cloud(c.phone, msg)
+            if not ok:
+                digits = "".join(ch for ch in c.phone if ch.isdigit())
+                if digits:
+                    links.append(f"• {c.name}: <a href='https://wa.me/{digits}?text={quote(msg)}'>Send Monthly Check-In</a>")
+    if links:
+        await notify_owner("📅 <b>AI Monthly Hospital Check-In Links:</b>
+" + "
+".join(links[:8]))
+    return {"checked_hospitals": len(actives)}

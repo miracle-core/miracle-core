@@ -32,6 +32,13 @@ class AdCampaign(Base):
     amount = Column(Integer, nullable=False)
     radius_km = Column(Integer, default=10)
     camp_title = Column(String(200), nullable=True)
+    currency = Column(String(10), default="INR")
+    country_code = Column(String(10), default="IN")
+    gateway_fee = Column(Integer, default=0)
+    total_amount = Column(Integer, default=0)
+    auto_renew = Column(Boolean, default=True)
+    hospital_pin = Column(String(20), nullable=True)
+    special_update = Column(Text, nullable=True)
     status = Column(String(30), default="pending")  # pending | active | expired | stopped
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)

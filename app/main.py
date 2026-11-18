@@ -27,6 +27,17 @@ CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        for col_sql in [
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR'",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS country_code VARCHAR(10) DEFAULT 'IN'",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS gateway_fee INTEGER DEFAULT 0",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS total_amount INTEGER DEFAULT 0",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS hospital_pin VARCHAR(20)",
+            "ALTER TABLE ad_campaigns ADD COLUMN IF NOT EXISTS special_update TEXT"
+        ]:
+            conn.execute(text(col_sql))
     yield
 
 
@@ -100,6 +111,14 @@ async def cron_strategist(secret: str, db: Session = Depends(get_db)):
     if secret != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return await run_strategist_analysis(db, notify_owner)
+
+
+@app.get("/api/cron/monthly-checkin")
+async def cron_monthly_checkin(secret: str, db: Session = Depends(get_db)):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    from app.routers.geo_ads import run_hospital_monthly_checkin
+    return await run_hospital_monthly_checkin(db)
 
 
 @app.get("/api/cron/outreach")
