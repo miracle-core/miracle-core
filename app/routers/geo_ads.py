@@ -747,3 +747,23 @@ async def run_hospital_monthly_checkin(db: Session):
 " + "
 ".join(links[:8]))
     return {"checked_hospitals": len(actives)}
+
+
+class DevicePingReq(BaseModel):
+    device_id: str
+    is_installed: bool = False
+
+
+@router.post("/ping-device")
+def ping_app_device(req: DevicePingReq, db: Session = Depends(get_db)):
+    from datetime import datetime
+    from app.models import AppDevice
+    row = db.query(AppDevice).filter(AppDevice.device_id == req.device_id[:64]).first()
+    if row:
+        row.last_seen_at = datetime.utcnow()
+        if req.is_installed:
+            row.is_installed = True
+    else:
+        db.add(AppDevice(device_id=req.device_id[:64], is_installed=req.is_installed))
+    db.commit()
+    return {"ok": True}

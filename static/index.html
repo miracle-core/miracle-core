@@ -1348,6 +1348,28 @@
     const s = GUIDE_STEPS[guideIdx];
     speakTextFallback(`${s.title}. ${s.desc}`, "hi-IN");
   }
+
+  // Track unique user & PWA install count anonymously
+  (function trackDevice() {
+    let did = localStorage.getItem("miracle_did");
+    if (!did) {
+      did = "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("miracle_did", did);
+    }
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    fetch("/api/clinics/ping-device", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: did, is_installed: !!isStandalone }),
+    }).catch(() => {});
+    window.addEventListener("appinstalled", () => {
+      fetch("/api/clinics/ping-device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_id: did, is_installed: true }),
+      }).catch(() => {});
+    });
+  })();
 </script>
 </body>
 </html>

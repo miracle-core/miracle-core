@@ -198,16 +198,8 @@ async def handle_telegram_update(update: dict, db: Session):
             reply_markup=markup,
         )
     elif text.startswith("/stats"):
-        total_clinics = db.query(ClinicDoctor).count()
-        active_ads = db.query(AdCampaign).filter(AdCampaign.status == "active").count()
-        pending_pay = db.query(PaymentProof).filter(PaymentProof.status == "pending").count()
-        total_triage = db.query(TriageLog).count()
-        total_leads = db.query(OutreachLead).count()
-        await notify_owner(
-            f"📊 <b>MIRACLE Live Stats</b>\n"
-            f"🏥 Clinics: <b>{total_clinics}</b> | 📢 Active Ads: <b>{active_ads}</b>\n"
-            f"⏳ Pending Pay: <b>{pending_pay}</b> | 🩺 Triages: <b>{total_triage}</b> | 📩 Leads: <b>{total_leads}</b>"
-        )
+        from app.watchdog import build_number_report_text
+        await notify_owner(build_number_report_text(db))
     elif text.startswith("/pending"):
         pendings = db.query(PaymentProof).filter(PaymentProof.status == "pending").all()
         if not pendings:

@@ -135,3 +135,12 @@ class FamilyLink(Base):
     relative_tg_id = Column(String(60), nullable=False)
     relative_name = Column(String(120), default="Relative")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AppDevice(Base):
+    __tablename__ = "app_devices"
+
+    device_id = Column(String(64), primary_key=True, index=True)
+    is_installed = Column(Boolean, default=False)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
