@@ -485,8 +485,16 @@ async def get_location_welcome(lat: float = Query(...), lng: float = Query(...))
         "Please share this with your dear & near ones so anyone facing a health query receives immediate, honest support."
     )
 
+    dial_map = {
+        "in": "+91", "tr": "+90", "ae": "+971", "sa": "+966", "us": "+1", "ca": "+1",
+        "gb": "+44", "de": "+49", "fr": "+33", "es": "+34", "ru": "+7", "id": "+62",
+        "br": "+55", "pk": "+92", "bd": "+880", "qa": "+974", "kw": "+965", "om": "+968"
+    }
+    dial_code = dial_map.get(country_code, "+91" if (6.0 <= lat <= 37.5 and 68.0 <= lng <= 97.5) else ("+90" if (35.8 <= lat <= 42.3 and 25.5 <= lng <= 45.0) else "+1"))
+
     return {
         "place": place_label,
+        "dial_code": dial_code,
         "local_lang_code": lang_code,
         "local_lang_name": local_info["lang_name"] if local_info else "English",
         "local_message": local_info["msg"] if local_info else "",

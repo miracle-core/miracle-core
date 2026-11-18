@@ -210,8 +210,24 @@
         <input type="text" id="iceName" placeholder="Patient Name" />
         <input type="text" id="iceBlood" placeholder="Blood Group (e.g. O+, B+)" />
         <input type="text" id="iceMed" placeholder="Allergy / Disease (e.g. Diabetes, Heart)" />
-        <input type="text" id="iceFam1" placeholder="Family Contact 1 (+91... / +90...)" />
-        <input type="text" id="iceFam2" placeholder="Family Contact 2 (Optional)" />
+        <div style="display:grid;grid-template-columns:96px 1fr;gap:6px;">
+          <select id="iceDialCode" style="padding:10px 6px;font-weight:700;">
+            <option value="+91">🇮🇳 +91</option>
+            <option value="+90">🇹🇷 +90</option>
+            <option value="+971">🇦🇪 +971</option>
+            <option value="+966">🇸🇦 +966</option>
+            <option value="+1">🇺🇸 +1</option>
+            <option value="+44">🇬🇧 +44</option>
+            <option value="+49">🇩🇪 +49</option>
+            <option value="+33">🇫🇷 +33</option>
+            <option value="+7">🇷🇺 +7</option>
+            <option value="+62">🇮🇩 +62</option>
+            <option value="+92">🇵🇰 +92</option>
+            <option value="+880">🇧🇩 +880</option>
+          </select>
+          <input type="tel" id="iceFam1" placeholder="Family 1 Mobile (10 digits)" />
+        </div>
+        <input type="tel" id="iceFam2" placeholder="Family 2 Mobile (Optional)" />
         <input type="email" id="iceFamEmail" placeholder="Family Email (Direct Server Alert)" />
         <input type="text" id="iceFamTg" placeholder="Telegram Numeric ID (Optional — ya Save ke baad Link bhejein)" />
         <button class="primary-btn" style="background:#991b1b;" onclick="saveIceProfile()">💾 Save Emergency Profile</button>
@@ -890,6 +906,8 @@
           .then(r => r.json())
           .then(w => {
             if (wb && w.place) wb.innerText = `📍 ${w.place}`;
+            const dc = document.getElementById("iceDialCode");
+            if (dc && w.dial_code && !getIceProfile().dialCode) dc.value = w.dial_code;
             const lbox = document.getElementById("welcomeLocalBox");
             if (lbox && w.local_message) {
               lbox.style.display = "block";
@@ -912,6 +930,16 @@
   let trackWatchId = null;
   let lastTrackPush = 0;
 
+  function formatWithDialCode(dial, raw) {
+    let s = (raw || "").trim().replace(/[\s-]/g, "");
+    if (!s) return "";
+    if (s.startsWith("+")) return s;
+    s = s.replace(/^0+/, "");
+    const codeDigits = dial.replace("+", "");
+    if (s.startsWith(codeDigits) && s.length > 10) return "+" + s;
+    return dial + s;
+  }
+
   function getIceProfile() {
     try { return JSON.parse(localStorage.getItem("miracle_ice") || "{}"); } catch { return {}; }
   }
@@ -921,6 +949,7 @@
     document.getElementById("iceName").value = p.name || "";
     document.getElementById("iceBlood").value = p.blood || "";
     document.getElementById("iceMed").value = p.med || "";
+    if (p.dialCode && document.getElementById("iceDialCode")) document.getElementById("iceDialCode").value = p.dialCode;
     document.getElementById("iceFam1").value = p.fam1 || "";
     document.getElementById("iceFam2").value = p.fam2 || "";
     document.getElementById("iceFamEmail").value = p.famEmail || "";
@@ -952,8 +981,9 @@
       name: document.getElementById("iceName").value.trim() || "Patient",
       blood: document.getElementById("iceBlood").value.trim(),
       med: document.getElementById("iceMed").value.trim(),
-      fam1: document.getElementById("iceFam1").value.trim(),
-      fam2: document.getElementById("iceFam2").value.trim(),
+      dialCode: document.getElementById("iceDialCode").value,
+      fam1: formatWithDialCode(document.getElementById("iceDialCode").value, document.getElementById("iceFam1").value),
+      fam2: formatWithDialCode(document.getElementById("iceDialCode").value, document.getElementById("iceFam2").value),
       famEmail: document.getElementById("iceFamEmail").value.trim(),
       famTg: document.getElementById("iceFamTg").value.trim(),
       familyCode: oldP.familyCode || null,
