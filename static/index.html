@@ -149,6 +149,17 @@
     <div style="display:flex;gap:6px;"><button onclick="openEmergencySOS()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;">🪪 Family ICE</button><button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">GPS</button></div>
   </div>
 
+  <!-- PATIENT vs HEALTHCARE SERVICE SWITCHER -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#e2e8f0;padding:5px;border-radius:14px;margin-bottom:14px;">
+    <button id="tabPatient" onclick="switchMode('patient')" style="border:none;border-radius:10px;padding:11px 8px;font-size:14px;font-weight:800;cursor:pointer;background:#0b6e4f;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+      👤 Patient Care
+    </button>
+    <button id="tabHealthcare" onclick="switchMode('healthcare')" style="border:none;border-radius:10px;padding:11px 8px;font-size:14px;font-weight:800;cursor:pointer;background:transparent;color:#334155;">
+      🏥 Healthcare Service
+    </button>
+  </div>
+
+  <div id="patientPortal">
   <!-- 4 ULTRA-SIMPLE BUTTONS -->
   <div class="big-grid">
     <button class="big-btn" style="background:linear-gradient(135deg,#dc2626,#991b1b);grid-column:span 2;padding:15px;font-size:17px;" onclick="openEmergencySOS()">
@@ -174,10 +185,7 @@
       <small>Aas-paas sahi ilaj</small>
     </button>
 
-    <button class="big-btn btn-doc" onclick="showSection('partnerSection')">
-      <span class="ico">👨‍⚕️</span>
-      <span>For Doctors & Clinics: Apna 10km Ad / Free Camp Lagayein</span>
-    </button>
+
     <button class="big-btn" style="background:#0f766e;grid-column:span 2;padding:12px;font-size:14px;" onclick="shareMiracle()">
       <span>📲 Apne Parivar & Doston Ko WhatsApp Par Share Karein</span>
     </button>
@@ -243,8 +251,11 @@
     <div id="nearList">Loading...</div>
   </div>
 
-  <!-- DOCTOR SELF-ONBOARDING FORM -->
-  <div class="card hidden" id="partnerSection">
+  </div><!-- END patientPortal -->
+
+  <div id="healthcarePortal" class="hidden">
+  <!-- DOCTOR & HOSPITAL SERVICES -->
+  <div class="card" id="partnerSection">
     <h3>👨‍⚕️ Doctor / Clinic / Free Camp Ad Form (Zero Commission)</h3>
     <input type="text" id="dName" placeholder="Clinic / Hospital Name" />
     <input type="text" id="dSpec" placeholder="Specialty (e.g. Orthopedics, Cardiology, Ayurveda, Dental)" />
@@ -275,6 +286,16 @@
       <button class="primary-btn" style="background:#ea580c;" onclick="uploadPaymentProof()">📤 Upload Payment Screenshot (AI Verify)</button>
     </div>
   </div>
+  <div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+    <h3>🤖 AI Ad Poster & 40s Video Script Maker</h3>
+    <p style="font-size:13px;color:#334155;margin-top:0;">Ad register karne ke baad apna Campaign ID daalein—Ali Vepa AI aapke hospital/camp ke liye aam patient ko samajh aane wala Ad & Video Script bana dega:</p>
+    <div style="display:flex;gap:8px;">
+      <input type="number" id="creativeCampId" placeholder="Campaign ID (e.g. 1)" style="margin:0;" />
+      <button class="primary-btn" style="width:auto;white-space:nowrap;" onclick="getAdCreative()">Generate AI Script</button>
+    </div>
+    <div id="creativeOut" style="font-size:13px;margin-top:10px;"></div>
+  </div>
+  </div><!-- END healthcarePortal -->
 </div>
 
 <footer>
@@ -356,7 +377,7 @@
   detectGPS();
 
   function showSection(id) {
-    ["sosSection", "scanSection", "nearSection", "partnerSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
+    ["sosSection", "scanSection", "nearSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
     const el = document.getElementById(id);
     el.classList.remove("hidden");
     setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -1099,6 +1120,38 @@
     } catch (e) {
       document.getElementById("sosProvidersList").innerHTML = "⚠️ Unable to load list. Please call 112 / 108 / 911 immediately.";
     }
+  }
+
+  function switchMode(mode) {
+    const pPort = document.getElementById("patientPortal");
+    const hPort = document.getElementById("healthcarePortal");
+    const tPat = document.getElementById("tabPatient");
+    const tHlt = document.getElementById("tabHealthcare");
+    if (mode === "healthcare") {
+      pPort.classList.add("hidden");
+      hPort.classList.remove("hidden");
+      tHlt.style.background = "#0b6e4f"; tHlt.style.color = "#fff";
+      tPat.style.background = "transparent"; tPat.style.color = "#334155";
+    } else {
+      hPort.classList.add("hidden");
+      pPort.classList.remove("hidden");
+      tPat.style.background = "#0b6e4f"; tPat.style.color = "#fff";
+      tHlt.style.background = "transparent"; tHlt.style.color = "#334155";
+    }
+  }
+
+  async function getAdCreative() {
+    const cid = document.getElementById("creativeCampId").value;
+    if (!cid) return alert("Campaign ID daalein!");
+    const out = document.getElementById("creativeOut");
+    out.innerHTML = "⏳ Generating patient-friendly Ad & Video Script...";
+    const res = await fetch(`/api/sales/ad-creative/${cid}?language=${encodeURIComponent(document.getElementById("langSelect").value)}`);
+    const d = await res.json();
+    if (!res.ok) { out.innerHTML = d.detail || "Not found"; return; }
+    const c = d.creative || {};
+    out.innerHTML = c.poster_headline
+      ? `<b>📌 Headline:</b> ${c.poster_headline}<br/><b>🏷️ Badge:</b> ${c.poster_badge}<br/><b>🔊 Audio Line:</b> ${c.audio_announcement}<br/><b>🎬 40s Video Script:</b><br/>${c.video_script_40s}`
+      : `<pre style="white-space:pre-wrap;">${d.creative_text || JSON.stringify(d)}</pre>`;
   }
 </script>
 </body>
