@@ -195,6 +195,7 @@
 
     <!-- ICE Medical & Family Card -->
     <div id="iceCardDisplay" style="background:#fff;border:1px solid #fca5a5;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;"></div>
+    <div id="tgInviteBox" class="hidden" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;"></div>
 
     <details style="background:#fff;border-radius:10px;padding:10px;margin-bottom:12px;border:1px solid #fecaca;">
       <summary style="font-weight:700;color:#991b1b;cursor:pointer;">⚙️ Edit Emergency Family & Blood Group Info (1-Time Save)</summary>
@@ -883,22 +884,48 @@
     } else {
       box.innerHTML = `<b>🪪 ICE Card:</b> ${p.name || "Patient"} | <b>🩸 ${p.blood || "N/A"}</b><br/>${p.med ? `<b>⚠️ Note:</b> ${p.med}<br/>` : ""}<b>👨‍👩‍👧 Family:</b> ${p.fam1 || "-"} ${p.fam2 ? "/ " + p.fam2 : ""}`;
     }
+    const invBox = document.getElementById("tgInviteBox");
+    if (p.inviteLink && invBox) {
+      invBox.classList.remove("hidden");
+      const msg = encodeURIComponent(`Namaste! Maine aapko MIRACLE Health App mein apna Emergency Family Contact banaya hai. Emergency mein mera Live Location paane ke liye bas is link par click karke START daba dein:\n${p.inviteLink}`);
+      const f1 = (p.fam1 || "").replace(/[^0-9]/g, "");
+      invBox.innerHTML = `<b>🔗 Relative Ko 1-Click Mein Telegram Alert Se Jodein:</b><br/>
+        <small>Relative ko is link par click karke bas <b>START</b> dabana hai (unhe pata chal jayega ki aapne unhe add kiya hai):</small><br/>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <a href="https://wa.me/${f1}?text=${msg}" target="_blank" style="background:#16a34a;color:#fff;padding:7px 11px;border-radius:8px;text-decoration:none;font-weight:700;font-size:12px;">📲 Send Link via WhatsApp</a>
+          <a href="sms:${p.fam1 || ''}?body=${msg}" style="background:#0284c7;color:#fff;padding:7px 11px;border-radius:8px;text-decoration:none;font-weight:700;font-size:12px;">💬 Send via SMS</a>
+        </div>`;
+    }
   }
 
-  function saveIceProfile() {
+  async function saveIceProfile() {
+    const oldP = getIceProfile();
     const p = {
-      name: document.getElementById("iceName").value.trim(),
+      name: document.getElementById("iceName").value.trim() || "Patient",
       blood: document.getElementById("iceBlood").value.trim(),
       med: document.getElementById("iceMed").value.trim(),
       fam1: document.getElementById("iceFam1").value.trim(),
       fam2: document.getElementById("iceFam2").value.trim(),
       famEmail: document.getElementById("iceFamEmail").value.trim(),
       famTg: document.getElementById("iceFamTg").value.trim(),
+      familyCode: oldP.familyCode || null,
+      inviteLink: oldP.inviteLink || "",
     };
+    try {
+      const r = await fetch("/api/clinics/family-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_code: p.familyCode, patient_name: p.name }),
+      });
+      const d = await r.json();
+      p.familyCode = d.family_code;
+      p.inviteLink = d.invite_link || "";
+    } catch (e) {}
+
     localStorage.setItem("miracle_ice", JSON.stringify(p));
     renderIceBox();
     loadAmbulanceSOS();
-    alert("✅ Emergency Family & Blood Group Info Saved!");
+    alert("✅ Saved! Ab neeche 'Send Telegram Invite' se apne relative ko 1 click mein jod dein.");
   }
 
   async function openEmergencySOS() {
@@ -992,6 +1019,7 @@
         fam_phone: iceForDispatch.fam1 || "",
         fam_email: iceForDispatch.famEmail || "",
         fam_tg_id: iceForDispatch.famTg || "",
+        family_code: iceForDispatch.familyCode || "",
         test_mode: !!document.getElementById("sosTestMode")?.checked,
         base_url: window.location.origin,
       }),

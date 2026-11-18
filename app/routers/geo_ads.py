@@ -527,12 +527,13 @@ class SosDispatchRequest(BaseModel):
     fam_phone: Optional[str] = ""
     fam_email: Optional[str] = ""
     fam_tg_id: Optional[str] = ""
+    family_code: Optional[str] = ""
     test_mode: bool = False
     base_url: Optional[str] = ""
 
 
 @router.post("/sos-dispatch")
-async def dispatch_direct_sos(req: SosDispatchRequest):
+async def dispatch_direct_sos(req: SosDispatchRequest, db: Session = Depends(get_db)):
     from app.telegram_bot import send_telegram_message
     from app.routers.sales_agent import send_smtp_email, send_whatsapp_cloud
 
@@ -556,10 +557,22 @@ async def dispatch_direct_sos(req: SosDispatchRequest):
 
     sent_channels = []
 
-    # 1. Direct Server Telegram to Family
-    if req.fam_tg_id:
-        await send_telegram_message(req.fam_tg_id.strip(), msg_html)
-        sent_channels.append("Family Telegram")
+    # 1. Direct Server Telegram to Family (Manual ID + All Auto-Linked Relatives)
+    tg_targets = set()
+    if req.fam_tg_id and req.fam_tg_id.strip():
+        tg_targets.add(req.fam_tg_id.strip())
+    if req.family_code and req.family_code.strip():
+        from app.models import FamilyLink
+        links = db.query(FamilyLink).filter(
+            FamilyLink.family_code == req.family_code.strip().upper(),
+            FamilyLink.relative_tg_id != "SEED"
+        ).all()
+        for lk in links:
+            tg_targets.add(lk.relative_tg_id)
+    for tid in tg_targets:
+        await send_telegram_message(tid, msg_html)
+    if tg_targets:
+        sent_channels.append(f"Family Telegram ({len(tg_targets)})")
 
     # 2. Direct Server Email to Family (if SMTP configured)
     if req.fam_email and send_smtp_email(req.fam_email.strip(), f"{prefix}Urgent Location Alert - {req.patient_name}", msg_plain):
@@ -590,3 +603,31 @@ async def dispatch_direct_sos(req: SosDispatchRequest):
     await notify_owner(msg_html + f"\n✅ <i>Server Dispatched: {', '.join(sent_channels) or 'Backup Link Ready'}</i>")
 
     return {"dispatched": sent_channels, "track_url": track_url}
+
+
+class FamilyInviteRequest(BaseModel):
+    family_code: Optional[str] = None
+    patient_name: str = "Patient"
+
+
+@router.post("/family-invite")
+async def create_family_invite(req: FamilyInviteRequest, db: Session = Depends(get_db)):
+    from app.models import FamilyLink
+    from app.telegram_bot import get_bot_username
+
+    fcode = (req.family_code or f"FAM-{uuid.uuid4().hex[:6].upper()}").upper()
+    seed = db.query(FamilyLink).filter(
+        FamilyLink.family_code == fcode, FamilyLink.relative_tg_id == "SEED"
+    ).first()
+    if not seed:
+        db.add(FamilyLink(family_code=fcode, patient_name=req.patient_name[:120], relative_tg_id="SEED", relative_name="Seed"))
+    else:
+        seed.patient_name = req.patient_name[:120]
+    db.commit()
+
+    bot_user = await get_bot_username()
+    tg_link = f"https://t.me/{bot_user}?start={fcode}" if bot_user else ""
+    connected_count = db.query(FamilyLink).filter(
+        FamilyLink.family_code == fcode, FamilyLink.relative_tg_id != "SEED"
+    ).count()
+    return {"family_code": fcode, "invite_link": tg_link, "connected_relatives": connected_count}

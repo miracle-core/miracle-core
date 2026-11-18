@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timedelta
 import httpx
 from sqlalchemy.orm import Session
-from app.models import ClinicDoctor, AdCampaign, PaymentProof, TriageLog, OutreachLead
+from app.models import ClinicDoctor, AdCampaign, PaymentProof, TriageLog, OutreachLead, FamilyLink
 from app.strategist_agent import (
     get_config, set_config, run_strategist_analysis
 )
@@ -11,6 +11,23 @@ from app.strategist_agent import (
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 OWNER_ID = os.getenv("OWNER_TELEGRAM_ID", "")
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
+BOT_USERNAME_CACHE = os.getenv("TELEGRAM_BOT_USERNAME", "")
+
+
+async def get_bot_username() -> str:
+    global BOT_USERNAME_CACHE
+    if BOT_USERNAME_CACHE:
+        return BOT_USERNAME_CACHE
+    if not BOT_TOKEN:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{TG_API}/getMe")
+        if r.status_code == 200:
+            BOT_USERNAME_CACHE = r.json().get("result", {}).get("username", "")
+    except Exception:
+        pass
+    return BOT_USERNAME_CACHE
 
 
 async def send_telegram_message(chat_id: str, text: str, reply_markup: dict = None):
@@ -109,12 +126,38 @@ async def handle_telegram_update(update: dict, db: Session):
     text = msg.get("text", "").strip()
 
     if sender_id != str(OWNER_ID):
+        if text.startswith("/start FAM-"):
+            fcode = text.split(" ", 1)[1].strip().upper()
+            rel_name = msg["from"].get("first_name", "Family Member")
+            existing = db.query(FamilyLink).filter(
+                FamilyLink.family_code == fcode,
+                FamilyLink.relative_tg_id == sender_id
+            ).first()
+            seed_row = db.query(FamilyLink).filter(FamilyLink.family_code == fcode).first()
+            p_name = seed_row.patient_name if seed_row else "Your family member"
+            if not existing:
+                db.add(FamilyLink(
+                    family_code=fcode,
+                    patient_name=p_name,
+                    relative_tg_id=sender_id,
+                    relative_name=rel_name
+                ))
+                db.commit()
+            await send_telegram_message(
+                sender_id,
+                f"✅ <b>Emergency Family Alert Activated!</b>\n\n"
+                f"Namaste <b>{rel_name}</b>, <b>{p_name}</b> ne aapko MIRACLE Health App mein apna "
+                f"<b>Emergency Contact</b> banaya hai.\n\n"
+                f"Jab bhi woh SOS dabayenge, aapko turant yahan unka <b>Live Moving GPS Location & Blood Group</b> milega. "
+                f"Aapko kuch aur karne ki zaroorat nahi hai! 🩺❤️"
+            )
+            return {"ok": True}
+
         await send_telegram_message(
             sender_id,
-            f"🩺 <b>MIRACLE Emergency Family Alert Connected!</b>\n\n"
+            f"🩺 <b>MIRACLE Emergency Family Alert</b>\n\n"
             f"Aapka <b>Family SOS ID</b> hai: <code>{sender_id}</code>\n"
-            f"Is number ko apne parivar ke MIRACLE App -> SOS -> 'Family Telegram ID' mein save kar dein. "
-            f"Emergency mein aapko seedha yahan Live GPS Tracking milega!"
+            f"(Agar kisi parivar wale ne aapko invite link bheja hai, toh us link par click karke Start karein)."
         )
         return {"ok": True}
 

@@ -117,3 +117,14 @@ class SosTrack(Base):
     lng = Column(Float, nullable=False)
     is_active = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FamilyLink(Base):
+    __tablename__ = "family_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    family_code = Column(String(40), index=True, nullable=False)
+    patient_name = Column(String(120), default="Patient")
+    relative_tg_id = Column(String(60), nullable=False)
+    relative_name = Column(String(120), default="Relative")
+    created_at = Column(DateTime, default=datetime.utcnow)
