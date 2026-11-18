@@ -559,7 +559,7 @@ async def dispatch_direct_sos(req: SosDispatchRequest, db: Session = Depends(get
 
     # 1. Direct Server Telegram to Family (Manual ID + All Auto-Linked Relatives)
     tg_targets = set()
-    if req.fam_tg_id and req.fam_tg_id.strip():
+    if req.fam_tg_id and req.fam_tg_id.strip().lstrip("-").isdigit():
         tg_targets.add(req.fam_tg_id.strip())
     if req.family_code and req.family_code.strip():
         from app.models import FamilyLink
