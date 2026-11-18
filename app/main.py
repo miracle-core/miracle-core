@@ -60,6 +60,16 @@ def serve_privacy():
     return FileResponse("static/privacy.html")
 
 
+@app.get("/logo.svg")
+def serve_logo():
+    return FileResponse("static/logo.svg", media_type="image/svg+xml")
+
+
+@app.get("/manifest.json")
+def serve_manifest():
+    return FileResponse("static/manifest.json", media_type="application/manifest+json")
+
+
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))

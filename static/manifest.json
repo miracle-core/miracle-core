@@ -1,0 +1,17 @@
+{
+  "name": "MIRACLE • AI Health & Second Opinion",
+  "short_name": "MIRACLE",
+  "description": "Unbiased Second Opinion, Report Clarity & Verified 10km Care",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#064e3b",
+  "theme_color": "#0b6e4f",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

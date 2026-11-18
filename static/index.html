@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>MIRACLE • AI Health & Second Opinion</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0b6e4f" />
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { margin: 0; background: #f3f7fa; color: #162330; padding-bottom: 80px; }
@@ -105,9 +108,12 @@
 <body>
 
 <header>
-  <div class="brand">
-    🩺 MIRACLE
-    <small>Sacchai & Honest Second Opinion</small>
+  <div class="brand" style="display:flex;align-items:center;gap:10px;">
+    <img src="/logo.svg" alt="MIRACLE" style="width:40px;height:40px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.25);" />
+    <div>
+      MIRACLE
+      <small>Sacchai & Honest Second Opinion</small>
+    </div>
   </div>
   <select id="langSelect" class="lang-pick" onchange="updateLabels()">
     <option value="hinglish">🇮🇳 Hinglish / हिन्दी</option>
@@ -223,7 +229,7 @@
   </div>
 
   <div>
-    <div class="call-avatar" id="callAvatar">🩺</div>
+    <div class="call-avatar" id="callAvatar"><img src="/logo.svg" style="width:88px;height:88px;border-radius:50%;" /></div>
     <div id="callStatusText" style="font-size:16px; font-weight:700; margin-bottom:10px;">Shuru ho raha hai...</div>
     <div class="call-transcript" id="callTranscript">Aap apni takleef seedhe bol sakte hain...</div>
   </div>
