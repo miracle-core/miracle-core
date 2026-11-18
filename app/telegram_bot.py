@@ -12,16 +12,35 @@ TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 async def send_telegram_message(chat_id: str, text: str, reply_markup: dict = None):
     if not BOT_TOKEN or not chat_id:
         return
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML",
-    }
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     if reply_markup:
         payload["reply_markup"] = reply_markup
-
     async with httpx.AsyncClient(timeout=15) as client:
         await client.post(f"{TG_API}/sendMessage", json=payload)
+
+
+async def send_telegram_photo_to_owner(
+    image_bytes: bytes, filename: str, caption: str, reply_markup: dict = None
+):
+    if not BOT_TOKEN or not OWNER_ID:
+        return
+    import json
+    data = {"chat_id": OWNER_ID, "caption": caption, "parse_mode": "HTML"}
+    if reply_markup:
+        data["reply_markup"] = json.dumps(reply_markup)
+    files = {"photo": (filename, image_bytes)}
+    async with httpx.AsyncClient(timeout=25) as client:
+        await client.post(f"{TG_API}/sendPhoto", data=data, files=files)
+
+
+async def answer_callback(callback_query_id: str, text: str = "Done"):
+    if not BOT_TOKEN:
+        return
+    async with httpx.AsyncClient(timeout=10) as client:
+        await client.post(
+            f"{TG_API}/answerCallbackQuery",
+            json={"callback_query_id": callback_query_id, "text": text},
+        )
 
 
 async def notify_owner(text: str, reply_markup: dict = None):
@@ -29,7 +48,6 @@ async def notify_owner(text: str, reply_markup: dict = None):
 
 
 async def handle_telegram_update(update: dict, db: Session):
-    # 1. Handle Inline Button Click (Approve / Reject Payment)
     if "callback_query" in update:
         cb = update["callback_query"]
         sender_id = str(cb["from"]["id"])
@@ -43,6 +61,7 @@ async def handle_telegram_update(update: dict, db: Session):
             if proof and proof.status == "pending":
                 proof.status = "approved"
                 campaign = db.query(AdCampaign).filter(AdCampaign.id == proof.campaign_id).first()
+                clinic_name = "Clinic"
                 if campaign:
                     days = 30 if campaign.plan_type == "monthly_7500" else 7
                     campaign.status = "active"
@@ -51,18 +70,27 @@ async def handle_telegram_update(update: dict, db: Session):
                     clinic = db.query(ClinicDoctor).filter(ClinicDoctor.id == campaign.clinic_id).first()
                     if clinic:
                         clinic.is_verified = True
+                        clinic_name = clinic.name
                 db.commit()
-                await notify_owner(f"✅ <b>Approved!</b> Order <code>{proof.order_code}</code> ab 10 km radius mein LIVE hai.")
+                await answer_callback(cb["id"], "Ad Live Ho Gaya!")
+                await notify_owner(
+                    f"✅ <b>Approved & LIVE!</b>\n"
+                    f"🏥 {clinic_name}\n"
+                    f"🧾 Order: <code>{proof.order_code}</code>\n"
+                    f"📍 10 km radius mein ab patients ko dikhega!"
+                )
+            else:
+                await answer_callback(cb["id"], "Already processed")
         elif data.startswith("reject_pay:"):
             proof_id = int(data.split(":")[1])
             proof = db.query(PaymentProof).filter(PaymentProof.id == proof_id).first()
             if proof:
                 proof.status = "rejected"
                 db.commit()
+                await answer_callback(cb["id"], "Rejected")
                 await notify_owner(f"❌ <b>Rejected:</b> Order <code>{proof.order_code}</code> cancel kar diya gaya.")
         return {"ok": True}
 
-    # 2. Handle Text Commands from Owner
     msg = update.get("message")
     if not msg:
         return {"ok": True}
@@ -71,7 +99,7 @@ async def handle_telegram_update(update: dict, db: Session):
     text = msg.get("text", "").strip()
 
     if sender_id != str(OWNER_ID):
-        await send_telegram_message(sender_id, "⛔ Yeh MIRACLE Owner Command Center hai. Sirf authorized owner access kar sakta hai.")
+        await send_telegram_message(sender_id, "⛔ Yeh MIRACLE Owner Command Center hai.")
         return {"ok": True}
 
     if text.startswith("/start") or text.startswith("/help"):
@@ -110,7 +138,7 @@ async def handle_telegram_update(update: dict, db: Session):
                 }
                 await notify_owner(
                     f"🔔 <b>Pending Order:</b> <code>{p.order_code}</code>\n"
-                    f"Amount: ₹{p.amount}\nRef: {p.ai_extracted_ref or 'N/A'}",
+                    f"Amount: ₹{p.amount}\nAI Read Ref: {p.ai_extracted_ref or 'Screenshot pending'}",
                     reply_markup=markup
                 )
     elif text.startswith("/ads"):
@@ -121,6 +149,6 @@ async def handle_telegram_update(update: dict, db: Session):
             lines = [f"• ID #{a.id} | {a.plan_type} | Ends: {a.end_date.strftime('%d-%b')}" for a in actives]
             await notify_owner("📢 <b>Active Ads:</b>\n" + "\n".join(lines))
     else:
-        await notify_owner("Samajh gaya Ali ji! /stats ya /pending try karein.")
+        await notify_owner("Samajh gaya Ali ji! /stats, /pending ya /ads try karein.")
 
     return {"ok": True}

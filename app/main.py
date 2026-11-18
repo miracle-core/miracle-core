@@ -13,6 +13,8 @@ from app.database import Base, engine, get_db
 from app import models  # noqa: F401
 from app.telegram_bot import handle_telegram_update, notify_owner
 from app.watchdog import run_watchdog, send_daily_report
+from app.routers.jarvis_ai import router as jarvis_router
+from app.routers.geo_ads import router as geo_ads_router
 
 WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "miracle_secret_2025")
 CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
@@ -24,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MIRACLE Health AI Core", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="MIRACLE Health AI Core", version="1.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +35,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(jarvis_router)
+app.include_router(geo_ads_router)
+
 
 @app.get("/")
 def home():
@@ -40,6 +45,7 @@ def home():
         "app": "MIRACLE",
         "mission": "Unbiased Second Opinion, Report Transparency & Honest Care",
         "status": "running",
+        "docs": "/docs",
     }
 
 
