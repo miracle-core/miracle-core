@@ -1,0 +1,76 @@
+import os
+from contextlib import asynccontextmanager
+import httpx
+from fastapi import FastAPI, Depends, Request, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from app.database import Base, engine, get_db
+from app import models  # noqa: F401
+from app.telegram_bot import handle_telegram_update, notify_owner
+
+WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "miracle_secret_2025")
+CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Auto-create tables in Neon on startup
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="MIRACLE Health AI Core", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/")
+def home():
+    return {
+        "app": "MIRACLE",
+        "mission": "Unbiased Second Opinion, Report Transparency & Honest Care",
+        "status": "running",
+    }
+
+
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "healthy", "database": "connected"}
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_telegram_bot_api_secret_token: str = Header(default=""),
+):
+    if WEBHOOK_SECRET and x_telegram_bot_api_secret_token != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+    update = await request.json()
+    return await handle_telegram_update(update, db)
+
+
+@app.get("/api/telegram/setup-webhook")
+async def setup_webhook(app_url: str, secret: str):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    webhook_url = f"{app_url.rstrip('/')}/api/telegram/webhook"
+    async with httpx.AsyncClient(timeout=15) as client:
+        res = await client.post(
+            f"https://api.telegram.org/bot{bot_token}/setWebhook",
+            json={"url": webhook_url, "secret_token": WEBHOOK_SECRET},
+        )
+    await notify_owner("🚀 <b>MIRACLE Server & Telegram Webhook Connected!</b>")
+    return res.json()
