@@ -128,10 +128,14 @@ async def register_clinic_ad(req: RegisterAdRequest, db: Session = Depends(get_d
     db.add(proof)
     db.commit()
 
-    payment_info = os.getenv(
-        "LOCAL_PAYMENT_INFO",
-        "Owner Local Account / UPI / IBAN (Configure LOCAL_PAYMENT_INFO in Render)"
-    )
+    cc_key = (req.country_code or "IN").upper()
+    default_pay = os.getenv("LOCAL_PAYMENT_INFO", "Configure LOCAL_PAYMENT_INFO in Render")
+    if cc_key == "IN":
+        payment_info = os.getenv("LOCAL_PAYMENT_IN", default_pay)
+    elif cc_key == "TR":
+        payment_info = os.getenv("LOCAL_PAYMENT_TR", default_pay)
+    else:
+        payment_info = os.getenv("LOCAL_PAYMENT_GLOBAL", os.getenv("LOCAL_PAYMENT_TR", default_pay))
 
     await notify_owner(
         f"🆕 <b>New Clinic Ad Order Created!</b>\n"
