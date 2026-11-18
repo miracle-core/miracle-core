@@ -104,6 +104,11 @@
     footer { text-align: center; font-size: 12px; color: #64748b; padding: 16px; }
     footer a { color: #0b6e4f; text-decoration: none; font-weight: 600; }
   </style>
+  <meta name="description" content="MIRACLE AI: Unbiased Second Opinion, Medical Report Scanner & Verified 10km Doctors." />
+  <meta property="og:title" content="MIRACLE • Sachai & Free AI Second Opinion" />
+  <meta property="og:description" content="Call Doctor AI se bolkar baat karein, Report scan karein, aur 10km mein sahi doctor dhoondhein." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://miracle-core.onrender.com/" />
 </head>
 <body>
 
@@ -152,6 +157,9 @@
     <button class="big-btn btn-doc" onclick="showSection('partnerSection')">
       <span class="ico">👨‍⚕️</span>
       <span>For Doctors & Clinics: Apna 10km Ad / Free Camp Lagayein</span>
+    </button>
+    <button class="big-btn" style="background:#0f766e;grid-column:span 2;padding:12px;font-size:14px;" onclick="shareMiracle()">
+      <span>📲 Apne Parivar & Doston Ko WhatsApp Par Share Karein</span>
     </button>
   </div>
 
@@ -632,6 +640,10 @@
     const res = await fetch("/api/clinics/upload-payment-proof", { method: "POST", body: fd });
     const d = await res.json();
     alert(d.message || "Sent for approval!");
+  }
+  function shareMiracle() {
+    const txt = encodeURIComponent("🩺 Kisi bhi report ya ilaj par Free Second Opinion paayein — MIRACLE AI se bolkar baat karein:\nhttps://miracle-core.onrender.com/");
+    window.open("https://wa.me/?text=" + txt, "_blank");
   }
 </script>
 </body>
