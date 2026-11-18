@@ -185,7 +185,12 @@
 
   <!-- EMERGENCY AMBULANCE SOS SECTION -->
   <div class="card hidden" id="sosSection" style="border:2px solid #dc2626; background:#fef2f2;">
-    <h3 style="color:#b91c1c;">🚑 Emergency Family & Ambulance SOS</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="color:#b91c1c;margin:0;">🚑 Emergency Family & Ambulance SOS</h3>
+      <label style="font-size:12px;font-weight:700;background:#fff;padding:4px 8px;border-radius:8px;border:1px solid #fca5a5;">
+        <input type="checkbox" id="sosTestMode" onchange="loadAmbulanceSOS()" style="width:auto;margin:0 4px 0 0;" /> 🧪 Test Mode
+      </label>
+    </div>
     <p id="sosLocationText" style="font-size:13px; font-weight:700; color:#7f1d1d;">📍 Fetching exact GPS...</p>
 
     <!-- ICE Medical & Family Card -->
@@ -970,7 +975,7 @@
     fetch("/api/clinics/sos-alert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lat: userLat, lng: userLng, note: "Patient tapped Emergency Ambulance SOS" }),
+      body: JSON.stringify({ lat: userLat, lng: userLng, note: document.getElementById("sosTestMode")?.checked ? "TEST MODE SOS Check (Ignore)" : "Patient tapped Emergency Ambulance SOS" }),
     }).catch(() => {});
 
     try {
@@ -980,7 +985,7 @@
       const country = d.emergency_numbers?.country || "Emergency";
       const ice = getIceProfile();
       const liveUrl = activeTrackId ? `${window.location.origin}/track/${activeTrackId}` : mapsPin;
-      const sosMsg = encodeURIComponent(`🚨 EMERGENCY SOS! ${ice.name || "Patient"} ${ice.blood ? "(Blood: "+ice.blood+") " : ""}ko turant madad chahiye!\n📡 Live Tracking: ${liveUrl}\n📍 Map Pin: ${mapsPin}`);
+      const sosMsg = encodeURIComponent(`${document.getElementById("sosTestMode")?.checked ? "🧪 [TEST] " : "🚨 "}EMERGENCY SOS! ${ice.name || "Patient"} ${ice.blood ? "(Blood: "+ice.blood+") " : ""}ko turant madad chahiye!\n📡 Live Tracking: ${liveUrl}\n📍 Map Pin: ${mapsPin}`);
       const f1Digits = (ice.fam1 || "").replace(/[^0-9]/g, "");
       const f2Digits = (ice.fam2 || "").replace(/[^0-9]/g, "");
 
@@ -999,9 +1004,10 @@
       }
 
       document.getElementById("sosPrimaryBtns").innerHTML = `
-        <a href="tel:${ambNum}" style="display:block;text-align:center;background:#dc2626;color:#fff;padding:14px;border-radius:12px;font-size:17px;font-weight:800;text-decoration:none;">
-          📞 CALL AMBULANCE NOW (${ambNum} • ${country})
-        </a>
+        ${document.getElementById("sosTestMode")?.checked
+          ? `<div style="text-align:center;background:#475569;color:#fff;padding:13px;border-radius:12px;font-size:14px;font-weight:700;">🧪 TEST MODE ON: Ambulance Call (${ambNum}) Locked Safe</div>`
+          : `<a href="tel:${ambNum}" onclick="return confirm('Kya aap sach mein Emergency Ambulance (${ambNum}) ko call karna chahte hain?')" style="display:block;text-align:center;background:#dc2626;color:#fff;padding:14px;border-radius:12px;font-size:17px;font-weight:800;text-decoration:none;">📞 CALL AMBULANCE NOW (${ambNum} • ${country})</a>`
+        }
         ${famHtml}
         <a href="https://wa.me/?text=${sosMsg}" target="_blank" style="display:block;text-align:center;background:#0284c7;color:#fff;padding:11px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">
           📡 Share Live Tracking Link (${activeTrackId || "GPS"})
