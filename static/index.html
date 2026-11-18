@@ -146,7 +146,7 @@
 <div class="container">
   <div class="gps-bar">
     <span id="gpsStatus">📍 Location check ho raha hai...</span>
-    <button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">Refresh GPS</button>
+    <div style="display:flex;gap:6px;"><button onclick="openEmergencySOS()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;">🪪 Family ICE</button><button onclick="detectGPS()" style="background:#0b6e4f;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;">GPS</button></div>
   </div>
 
   <!-- 4 ULTRA-SIMPLE BUTTONS -->
@@ -196,7 +196,7 @@
     <!-- ICE Medical & Family Card -->
     <div id="iceCardDisplay" style="background:#fff;border:1px solid #fca5a5;border-radius:10px;padding:10px;margin-bottom:10px;font-size:13px;"></div>
 
-    <details style="background:#fff;border-radius:10px;padding:10px;margin-bottom:12px;border:1px solid #fecaca;">
+    <details id="iceDetails" open style="background:#fff;border-radius:10px;padding:10px;margin-bottom:12px;border:1px solid #fecaca;">
       <summary style="font-weight:700;color:#991b1b;cursor:pointer;">⚙️ Edit Emergency Family & Blood Group Info (1-Time Save)</summary>
       <div style="margin-top:10px;">
         <input type="text" id="iceName" placeholder="Patient Name" />
@@ -357,7 +357,9 @@
 
   function showSection(id) {
     ["sosSection", "scanSection", "nearSection", "partnerSection"].forEach(s => document.getElementById(s).classList.add("hidden"));
-    document.getElementById(id).classList.remove("hidden");
+    const el = document.getElementById(id);
+    el.classList.remove("hidden");
+    setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }
 
   function getSpeechLang() {
