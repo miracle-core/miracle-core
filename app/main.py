@@ -12,6 +12,7 @@ load_dotenv()
 from app.database import Base, engine, get_db
 from app import models  # noqa: F401
 from app.telegram_bot import handle_telegram_update, notify_owner
+from app.watchdog import run_watchdog, send_daily_report
 
 WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "miracle_secret_2025")
 CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
@@ -19,7 +20,6 @@ CRON_SECRET = os.getenv("CRON_SECRET", "miracle_cron_2025")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create tables in Neon on startup
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -49,6 +49,20 @@ def health_check(db: Session = Depends(get_db)):
     return {"status": "healthy", "database": "connected"}
 
 
+@app.get("/api/cron/watchdog")
+async def cron_watchdog(secret: str, db: Session = Depends(get_db)):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return await run_watchdog(db)
+
+
+@app.get("/api/cron/daily-report")
+async def cron_daily_report(secret: str, db: Session = Depends(get_db)):
+    if secret != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return await send_daily_report(db)
+
+
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(
     request: Request,
@@ -72,5 +86,5 @@ async def setup_webhook(app_url: str, secret: str):
             f"https://api.telegram.org/bot{bot_token}/setWebhook",
             json={"url": webhook_url, "secret_token": WEBHOOK_SECRET},
         )
-    await notify_owner("🚀 <b>MIRACLE Server & Telegram Webhook Connected!</b>")
+    await notify_owner("🚀 <b>MIRACLE Server, Watchdog & Telegram Connected!</b>")
     return res.json()
