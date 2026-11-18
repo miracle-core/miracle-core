@@ -62,7 +62,7 @@ async def extract_payment_details_with_ai(image_bytes: bytes, mime_type: str) ->
         }],
         "generationConfig": {"temperature": 0.1},
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
     try:
         async with httpx.AsyncClient(timeout=25) as client:
             res = await client.post(url, json=payload)

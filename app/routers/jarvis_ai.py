@@ -162,14 +162,40 @@ async def call_gemini_multimodal(
     }
 
     res = None
-    for model_name in ["gemini-2.5-flash", "gemini-2.0-flash"]:
+    candidate_models = ["gemini-3.8-flash", "gemini-2.5-flash"]
+
+    # Auto-discover active flash model from Google if needed
+    for model_name in candidate_models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         async with httpx.AsyncClient(timeout=45) as client:
             res = await client.post(url, json=payload)
         if res.status_code == 200:
             break
-        if res.status_code not in (400, 404):
+        if res.status_code != 404:
             break
+
+    if res is not None and res.status_code == 404:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                m_res = await client.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}")
+            if m_res.status_code == 200:
+                models = m_res.json().get("models", [])
+                flash_models = [
+                    m["name"].replace("models/", "")
+                    for m in models
+                    if "flash" in m.get("name", "").lower()
+                    and "tts" not in m.get("name", "").lower()
+                    and "image" not in m.get("name", "").lower()
+                    and "generateContent" in m.get("supportedGenerationMethods", [])
+                ]
+                for fm in reversed(flash_models):
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{fm}:generateContent?key={api_key}"
+                    async with httpx.AsyncClient(timeout=45) as client:
+                        res = await client.post(url, json=payload)
+                    if res.status_code == 200:
+                        break
+        except Exception:
+            pass
 
     latency = int((time.time() - start) * 1000)
 

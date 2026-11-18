@@ -16,7 +16,7 @@ from app.telegram_bot import notify_owner
 
 router = APIRouter(prefix="/api/sales", tags=["AI Sales Agent & Auto Discovery"])
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 
 
 class DiscoverRequest(BaseModel):
