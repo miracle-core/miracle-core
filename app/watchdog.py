@@ -104,6 +104,17 @@ async def run_watchdog(db: Session):
     report["pending_payments"] = (
         db.query(PaymentProof).filter(PaymentProof.status == "pending").count()
     )
+
+    # Auto Morning Report once per day (Default 03:00 UTC = 06:00 AM Turkey / 08:30 AM India)
+    import os
+    from app.strategist_agent import get_config, set_config
+    target_hour = int(os.getenv("DAILY_REPORT_UTC_HOUR", "3"))
+    today_str = now.strftime("%Y-%m-%d")
+    if now.hour >= target_hour and get_config(db, "last_daily_report_date") != today_str:
+        set_config(db, "last_daily_report_date", today_str)
+        await send_daily_report(db)
+        report["morning_report_sent"] = True
+
     return report
 
 
